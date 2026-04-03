@@ -1,6 +1,7 @@
 import { sql, tenantTable } from '../db.js';
 import { config } from '../config.js';
 import { randomJson } from './text.js';
+import { tenantConversationId } from '../workloads/helpers.js';
 import type { Strategy, ItemType } from '../types.js';
 
 export const ITEM_TYPE_CONFIG: Record<ItemType, { weight: number; dataBytes: number }> = {
@@ -24,7 +25,7 @@ function pickItemType(): ItemType {
 export function generateItemRow(
   tenantId: string | null,
   conversationId: string,
-  timestamp: bigint,
+  timestamp: Date,
 ): Record<string, unknown> {
   const type = pickItemType();
   const dataBytes = ITEM_TYPE_CONFIG[type].dataBytes;
@@ -44,8 +45,8 @@ export function generateItemRow(
   return row;
 }
 
-function randomTimestampInRange(startMs: number, endMs: number): bigint {
-  return BigInt(Math.floor(startMs + Math.random() * (endMs - startMs)));
+function randomTimestampInRange(startMs: number, endMs: number): Date {
+  return new Date(startMs + Math.random() * (endMs - startMs));
 }
 
 export async function seedConversationItems(
@@ -79,10 +80,10 @@ export async function seedConversationItems(
 
     console.log(`[items] Tenant ${t + 1}/${tenants.length}: ${tenantId} → ${tableName}`);
 
-    // Generate conversation IDs for this tenant upfront
+    // Generate deterministic conversation IDs — must match what workloads query via tenantConversationId()
     const conversationIds: string[] = [];
     for (let i = 0; i < conversationsPerTenant; i++) {
-      conversationIds.push(crypto.randomUUID());
+      conversationIds.push(tenantConversationId(tenantId, i));
     }
 
     const segments = [

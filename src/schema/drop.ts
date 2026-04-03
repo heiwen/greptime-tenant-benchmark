@@ -48,7 +48,7 @@ async function main() {
   }
 
   console.log('Drop complete.');
-  await sql.end();
+  await sql.close();
 }
 
 main().catch((err) => {

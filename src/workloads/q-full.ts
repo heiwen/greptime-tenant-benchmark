@@ -10,8 +10,7 @@ const AVG_ROW_BYTES = Object.values(TIER_CONFIG).reduce(
 
 export function qFullS1(windowHours: number): WorkloadFn {
   return async ({ tenantId, strategy }) => {
-    // Use number for query filter params — ms timestamps fit safely in JS number
-    const cutoffMs = Date.now() - windowHours * 3600 * 1000;
+    const cutoff = new Date(Date.now() - windowHours * 3600 * 1000);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let rows: any[];
@@ -21,8 +20,8 @@ export function qFullS1(windowHours: number): WorkloadFn {
         SELECT *
         FROM spans
         WHERE tenant_id = ${tenantId}
-          AND timestamp > ${cutoffMs}
-        ORDER BY timestamp DESC
+          AND "timestamp" > ${cutoff}
+        ORDER BY "timestamp" DESC
         LIMIT 50
       `;
     } else {
@@ -30,8 +29,8 @@ export function qFullS1(windowHours: number): WorkloadFn {
       rows = await sql`
         SELECT *
         FROM ${sql(table)}
-        WHERE timestamp > ${cutoffMs}
-        ORDER BY timestamp DESC
+        WHERE "timestamp" > ${cutoff}
+        ORDER BY "timestamp" DESC
         LIMIT 50
       `;
     }

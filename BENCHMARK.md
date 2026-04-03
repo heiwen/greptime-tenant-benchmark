@@ -64,82 +64,72 @@ distributed across 0–f, so load is evenly spread across 16 partitions.
 
 ```sql
 -- Strategy B (shared table).
--- For Strategy A: remove tenant_id column, remove from PRIMARY KEY, drop PARTITION clause.
+-- For Strategy A: remove tenant_id column and PRIMARY KEY entry; no PARTITION clause.
 CREATE TABLE spans (
   -- Tenant
-  tenant_id                                         VARCHAR(36)   NOT NULL,
+  tenant_id              VARCHAR(36)   NOT NULL  INVERTED INDEX,
 
-  -- Timing
-  timestamp                                         TIMESTAMP(9)  NOT NULL TIME INDEX,
-  timestamp_end                                     TIMESTAMP(9),
-  duration_nano                                     BIGINT,
+  -- Timing (reserved word — must be quoted)
+  "timestamp"            TIMESTAMP(9)  NOT NULL TIME INDEX,
+  timestamp_end          TIMESTAMP(9),
+  duration_nano          BIGINT,
 
   -- Identifiers
-  trace_id                                          VARCHAR(32)   NOT NULL,
-  span_id                                           VARCHAR(16)   NOT NULL,
-  parent_span_id                                    VARCHAR(16),
+  trace_id               VARCHAR(32)   NOT NULL  SKIPPING INDEX WITH (type='BLOOM', granularity=1024),
+  span_id                VARCHAR(16)   NOT NULL,
+  parent_span_id         VARCHAR(16),
 
   -- Span metadata
-  span_name                                         VARCHAR(256),
-  span_kind                                         VARCHAR(64),
-  span_status_code                                  VARCHAR(64),
-  span_status_message                               VARCHAR(512),
-  trace_state                                       VARCHAR(256),
+  span_name              VARCHAR(256)  INVERTED INDEX,
+  span_kind              VARCHAR(64),
+  span_status_code       VARCHAR(64),
+  span_status_message    VARCHAR(512),
+  trace_state            VARCHAR(256),
 
   -- Service / scope
-  service_name                                      VARCHAR(256),
-  scope_name                                        VARCHAR(256),
-  scope_version                                     VARCHAR(64),
+  service_name           VARCHAR(256)  INVERTED INDEX,
+  scope_name             VARCHAR(256),
+  scope_version          VARCHAR(64),
 
   -- Gen AI scalar attributes (typed columns — not JSON)
-  "span_attributes.gen_ai.operation.name"           VARCHAR(64),
-  "span_attributes.gen_ai.system"                   VARCHAR(64),
-  "span_attributes.gen_ai.request.model"            VARCHAR(128),
-  "span_attributes.gen_ai.response.model"           VARCHAR(128),
-  "span_attributes.gen_ai.usage.input_tokens"       INT,
-  "span_attributes.gen_ai.usage.output_tokens"      INT,
-  "span_attributes.gen_ai.usage.total_tokens"       INT,
-  "span_attributes.gen_ai.response.finish_reasons"  VARCHAR(128),
+  gen_ai_operation       VARCHAR(64),
+  gen_ai_system          VARCHAR(64),
+  gen_ai_request_model   VARCHAR(128),
+  gen_ai_response_model  VARCHAR(128),
+  gen_ai_input_tokens    INT,
+  gen_ai_output_tokens   INT,
+  gen_ai_total_tokens    INT,
+  gen_ai_finish_reasons  VARCHAR(128),
 
   -- Bulk payload columns (dominate row size)
-  "span_attributes.gen_ai.input.messages"           STRING,       -- JSON, opt-in
-  "span_attributes.gen_ai.output.messages"          STRING,       -- JSON, opt-in
+  gen_ai_input_messages  STRING,   -- JSON, opt-in
+  gen_ai_output_messages STRING,   -- JSON, opt-in
 
-  -- Overflow: remaining span/resource/scope attributes
-  span_attributes                                   STRING,       -- JSON
-  resource_attributes                               STRING,       -- JSON
-  scope_attributes                                  STRING,       -- JSON
+  -- Overflow / compound fields
+  span_attributes        STRING,   -- JSON
+  span_events            STRING,   -- JSON
 
-  -- Compound fields
-  span_events                                       STRING,       -- JSON
-  span_links                                        STRING,       -- JSON
-
-  PRIMARY KEY (tenant_id, span_id),
-  SKIPPING INDEX (trace_id),
-  SKIPPING INDEX (service_name)
+  PRIMARY KEY (tenant_id, span_id)
 )
-WITH ('append_mode' = 'true')
 PARTITION ON COLUMNS (tenant_id) (
   -- 16 ranges as listed in the Strategy B section above
-);
+)
+WITH ('append_mode' = 'true');
 ```
 
 ### S2 — Conversation items
 
 ```sql
 -- Strategy B (shared table).
--- For Strategy A: remove tenant_id from the schema, PRIMARY KEY, and PARTITION clause;
--- partition on conversation_id using the same 16-range hex scheme.
-
+-- For Strategy A: remove tenant_id; partition on conversation_id using the same 16-range hex scheme.
 CREATE TABLE conversation_items (
-  tenant_id       VARCHAR(36)   NOT NULL,
-  id              VARCHAR(36)   NOT NULL,   -- UUIDv4
-  conversation_id VARCHAR(36)   NOT NULL,
+  tenant_id       VARCHAR(36)   NOT NULL  INVERTED INDEX,
+  "id"            VARCHAR(36)   NOT NULL,   -- UUIDv4 (reserved word — must be quoted)
+  conversation_id VARCHAR(36)   NOT NULL  INVERTED INDEX,
   created_at      TIMESTAMP(3)  NOT NULL TIME INDEX,
-  type            VARCHAR(64),
-  data            STRING,                   -- JSON, item payload
-  PRIMARY KEY (tenant_id, conversation_id, id),
-  SKIPPING INDEX (id)
+  "type"          VARCHAR(64),              -- reserved word — must be quoted
+  "data"          STRING,                   -- JSON, item payload (reserved word — must be quoted)
+  PRIMARY KEY (tenant_id, conversation_id, "id")
 )
 PARTITION ON COLUMNS (tenant_id) (
   -- 16 ranges as above
@@ -483,17 +473,39 @@ benchmark/
   BENCHMARK.md          -- this file
 ```
 
-Connect to GreptimeDB via the PostgreSQL wire protocol using a plain `pg` client
-and parameterized queries. Send timestamps as `YYYY-MM-DD HH:mm:ss.SSS` strings
-and JSON payloads as `Uint8Array` (binary) to match GreptimeDB's wire expectations.
+Connect to GreptimeDB via the PostgreSQL wire protocol using **Bun.sql** (Bun's
+built-in PostgreSQL client). Pass timestamps as native `Date` objects — Bun.sql
+serialises them correctly. Set `prepare: false` is not required with recent nightly
+builds; standard extended query protocol works.
 
 ---
 
 ## Test environment
 
-- **Instance**: standalone GreptimeDB (not cluster), 8 vCPU / 32 GB RAM / NVMe SSD
+- **GreptimeDB cluster** (`docker-compose.yml`):
+  - 3 × datanode — 2 vCPU / 8 GiB each, independent NVMe-backed volumes
+  - 2 × frontend — 2 vCPU / 8 GiB each
+  - HAProxy load balancer — round-robins client connections across both frontends
+  - PostgreSQL 17 as metasrv metadata backend (`--backend=postgres-store`)
+  - Partitioning enabled (`PARTITION_ENABLED=1`) — 16 partitions distributed across datanodes
 - **Block cache**: leave at GreptimeDB default values — document the configured
   instance memory so results can be interpreted in context
 - **Client machine**: separate host, same network / AZ, to avoid co-location effects
 - **Isolation**: no other workloads on either machine during benchmark runs
 - **Warm-up**: 60 seconds of mixed load before recording metrics
+
+### Local smoke profile
+
+For local iteration without the full dataset, override scale via env vars:
+
+```bash
+PARTITION_ENABLED=1 \
+TENANT_COUNT=10 \
+SPANS_PER_TENANT=5000 \
+ITEMS_PER_TENANT=10000 \
+CONVERSATIONS_PER_TENANT=500 \
+bun run seed -- --strategy b
+```
+
+Pass `--no-warmup --skip-scrape` to the runner to skip the 60 s warm-up and
+Prometheus scraping during local runs.

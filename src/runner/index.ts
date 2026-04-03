@@ -73,6 +73,9 @@ async function main() {
   // Parse --skip-scrape
   const skipScrape = args.includes('--skip-scrape');
 
+  // Parse --no-warmup (skips 60s warmup — useful for local/smoke runs)
+  const noWarmup = args.includes('--no-warmup');
+
   // Parse --output
   const outputIdx = args.indexOf('--output');
   const outputDir = outputIdx >= 0 ? args[outputIdx + 1] : config.resultsDir;
@@ -122,16 +125,20 @@ async function main() {
         scraper = startScraping(config.prometheusUrl, 5000);
       }
 
-      // Warm-up phase (60s, results discarded)
-      console.log(`  Warm-up: 60s at ${scenario.concurrency} VUs...`);
-      await runWorkload({
-        workloadFn: scenario.workloadFn,
-        tenants: tenantSubset,
-        strategy,
-        concurrency: scenario.concurrency,
-        durationSecs: 60,
-      });
-      console.log('  Warm-up complete.');
+      // Warm-up phase (60s, results discarded) — skip with --no-warmup for local runs
+      if (noWarmup) {
+        console.log('  Warm-up: skipped (--no-warmup)');
+      } else {
+        console.log(`  Warm-up: 60s at ${scenario.concurrency} VUs...`);
+        await runWorkload({
+          workloadFn: scenario.workloadFn,
+          tenants: tenantSubset,
+          strategy,
+          concurrency: scenario.concurrency,
+          durationSecs: 60,
+        });
+        console.log('  Warm-up complete.');
+      }
 
       // Actual benchmark
       console.log(`  Benchmark: ${scenario.durationSecs}s...`);
@@ -185,7 +192,7 @@ async function main() {
   await writeCsv(allResults, combinedCsv);
   console.log(`\nResults written to ${combinedCsv}`);
 
-  await sql.end();
+  await sql.close();
 }
 
 main().catch((err) => {

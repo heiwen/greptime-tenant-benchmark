@@ -80,7 +80,7 @@ async function main() {
   console.log(`\nSeeding complete in ${elapsedSecs.toFixed(1)}s`);
   console.log(`Estimated data seeded: ~${estimatedGb} GB`);
 
-  await sql.end();
+  await sql.close();
 }
 
 main().catch((err) => {

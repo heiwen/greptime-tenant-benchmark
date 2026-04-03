@@ -97,7 +97,7 @@ async function main() {
   }
 
   console.log('Schema creation complete.');
-  await sql.end();
+  await sql.close();
 }
 
 main().catch((err) => {

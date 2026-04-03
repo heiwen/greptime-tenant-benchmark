@@ -47,7 +47,7 @@ const GEN_AI_MODELS: Record<string, string[]> = {
 };
 const FINISH_REASONS = ['stop', 'length', 'tool_calls', 'content_filter'];
 
-export function generateSpanRow(tenantId: string | null, timestamp: bigint): Record<string, unknown> {
+export function generateSpanRow(tenantId: string | null, timestampMs: number): Record<string, unknown> {
   const tier = pickTier();
   const tierCfg = TIER_CONFIG[tier];
 
@@ -57,7 +57,7 @@ export function generateSpanRow(tenantId: string | null, timestamp: bigint): Rec
 
   const inputTokens = Math.floor(tierCfg.inputBytes / 4); // rough token estimate
   const outputTokens = Math.floor(tierCfg.outputBytes / 4);
-  const durationNano = BigInt(Math.floor(100_000_000 + Math.random() * 29_900_000_000)); // 100ms–30s
+  const durationNano = Math.floor(100_000_000 + Math.random() * 29_900_000_000); // 100ms–30s as plain number
 
   const inputMessages = JSON.stringify([
     { role: 'system', content: randomText(Math.floor(tierCfg.inputBytes * 0.3)) },
@@ -68,11 +68,11 @@ export function generateSpanRow(tenantId: string | null, timestamp: bigint): Rec
     { role: 'assistant', content: randomText(tierCfg.outputBytes) },
   ]);
 
-  const timestampEnd = timestamp + durationNano / BigInt(1_000_000); // convert nano to ms
+  const timestampEndMs = timestampMs + Math.floor(durationNano / 1_000_000);
 
   const row: Record<string, unknown> = {
-    timestamp,
-    timestamp_end: timestampEnd,
+    timestamp: new Date(timestampMs),
+    timestamp_end: new Date(timestampEndMs),
     duration_nano: durationNano,
     trace_id: randomHex(32),
     span_id: randomHex(16),
@@ -106,8 +106,8 @@ export function generateSpanRow(tenantId: string | null, timestamp: bigint): Rec
   return row;
 }
 
-function randomTimestampInRange(startMs: number, endMs: number): bigint {
-  return BigInt(Math.floor(startMs + Math.random() * (endMs - startMs)));
+function randomTimestampInRange(startMs: number, endMs: number): number {
+  return startMs + Math.random() * (endMs - startMs);
 }
 
 export async function seedSpans(
@@ -157,8 +157,8 @@ export async function seedSpans(
         const rows: Record<string, unknown>[] = [];
 
         for (let i = 0; i < thisBatch; i++) {
-          const ts = randomTimestampInRange(seg.start, seg.end);
-          const row = generateSpanRow(strategy === 'b' ? tenantId : null, ts);
+          const tsMs = randomTimestampInRange(seg.start, seg.end);
+          const row = generateSpanRow(strategy === 'b' ? tenantId : null, tsMs);
           rows.push(row);
         }
 

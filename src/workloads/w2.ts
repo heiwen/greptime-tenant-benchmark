@@ -11,12 +11,12 @@ export function w2(): WorkloadFn {
     const tier = pickTier();
     const tierRowBytes = TIER_CONFIG[tier].totalRowBytes;
     const traceId = Array.from({ length: 32 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
-    const baseTs = BigInt(Date.now());
+    const baseMs = Date.now();
 
     const rows: Record<string, unknown>[] = [];
 
     // Root span (no parent)
-    const rootRow = generateSpanRow(strategy === 'b' ? tenantId : null, baseTs);
+    const rootRow = generateSpanRow(strategy === 'b' ? tenantId : null, baseMs);
     rootRow.trace_id = traceId;
     rootRow.parent_span_id = null;
     rows.push(rootRow);
@@ -24,8 +24,7 @@ export function w2(): WorkloadFn {
     // 4 child spans
     const rootSpanId = rootRow.span_id as string;
     for (let i = 1; i < 5; i++) {
-      const childTs = baseTs + BigInt(i * 10); // slight offset
-      const childRow = generateSpanRow(strategy === 'b' ? tenantId : null, childTs);
+      const childRow = generateSpanRow(strategy === 'b' ? tenantId : null, baseMs + i * 10); // slight offset
       childRow.trace_id = traceId;
       childRow.parent_span_id = rootSpanId;
       rows.push(childRow);

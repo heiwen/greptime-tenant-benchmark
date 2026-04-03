@@ -26,13 +26,13 @@ export function w1(): WorkloadFn {
     const itemCount = 10 + Math.floor(Math.random() * 21); // 10–30 items
 
     let totalBytes = 0;
-    const baseTs = BigInt(Date.now());
+    const baseMs = Date.now();
 
     for (let i = 0; i < itemCount; i++) {
       const type = pickItemType();
       const dataBytes = ITEM_TYPE_CONFIG[type].dataBytes;
       const data = randomJson(dataBytes);
-      const createdAt = baseTs + BigInt(i); // 1ms offset per item to ensure unique TIME INDEX
+      const createdAt = new Date(baseMs + i); // 1ms offset per item to ensure unique TIME INDEX
 
       totalBytes += dataBytes;
 

@@ -1,0 +1,132 @@
+x-greptimedb: &greptimedb
+  image: greptime/greptimedb:v1.0.0-rc.2-nightly-20260330
+
+x-node-limits: &node-limits
+  mem_limit: 8g
+  cpus: "2"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: greptimedb-meta-postgres
+    environment:
+      POSTGRES_USER: greptime
+      POSTGRES_PASSWORD: greptime
+      POSTGRES_DB: metasrv
+    volumes:
+      - meta-postgres-data:/var/lib/postgresql/data
+
+  metasrv:
+    <<: *greptimedb
+    container_name: greptimedb-metasrv
+    command:
+      - metasrv
+      - start
+      - --rpc-bind-addr=0.0.0.0:3002
+      - --rpc-server-addr=metasrv:3002
+      - --http-addr=0.0.0.0:3000
+      - --backend=postgres-store
+      - "--store-addrs=host=postgres port=5432 user=greptime password=greptime dbname=metasrv"
+    depends_on:
+      - postgres
+
+  datanode0:
+    <<: [*greptimedb, *node-limits]
+    container_name: greptimedb-datanode0
+    command:
+      - datanode
+      - start
+      - --node-id=0
+      - --data-home=/greptimedb_data
+      - --rpc-bind-addr=0.0.0.0:3001
+      - --rpc-server-addr=datanode0:3001
+      - --metasrv-addrs=metasrv:3002
+      - --http-addr=0.0.0.0:5000
+    volumes:
+      - datanode0-data:/greptimedb_data
+    depends_on:
+      - metasrv
+
+  datanode1:
+    <<: [*greptimedb, *node-limits]
+    container_name: greptimedb-datanode1
+    command:
+      - datanode
+      - start
+      - --node-id=1
+      - --data-home=/greptimedb_data
+      - --rpc-bind-addr=0.0.0.0:3001
+      - --rpc-server-addr=datanode1:3001
+      - --metasrv-addrs=metasrv:3002
+      - --http-addr=0.0.0.0:5000
+    volumes:
+      - datanode1-data:/greptimedb_data
+    depends_on:
+      - metasrv
+
+  datanode2:
+    <<: [*greptimedb, *node-limits]
+    container_name: greptimedb-datanode2
+    command:
+      - datanode
+      - start
+      - --node-id=2
+      - --data-home=/greptimedb_data
+      - --rpc-bind-addr=0.0.0.0:3001
+      - --rpc-server-addr=datanode2:3001
+      - --metasrv-addrs=metasrv:3002
+      - --http-addr=0.0.0.0:5000
+    volumes:
+      - datanode2-data:/greptimedb_data
+    depends_on:
+      - metasrv
+
+  frontend0:
+    <<: [*greptimedb, *node-limits]
+    container_name: greptimedb-frontend0
+    command:
+      - frontend
+      - start
+      - --metasrv-addrs=metasrv:3002
+      - --http-addr=0.0.0.0:4000
+      - --rpc-bind-addr=0.0.0.0:4001
+      - --mysql-addr=0.0.0.0:4002
+      - --postgres-addr=0.0.0.0:4003
+    depends_on:
+      - datanode0
+      - datanode1
+      - datanode2
+
+  frontend1:
+    <<: [*greptimedb, *node-limits]
+    container_name: greptimedb-frontend1
+    command:
+      - frontend
+      - start
+      - --metasrv-addrs=metasrv:3002
+      - --http-addr=0.0.0.0:4000
+      - --rpc-bind-addr=0.0.0.0:4001
+      - --mysql-addr=0.0.0.0:4002
+      - --postgres-addr=0.0.0.0:4003
+    depends_on:
+      - datanode0
+      - datanode1
+      - datanode2
+
+  haproxy:
+    image: haproxy:lts-alpine
+    container_name: greptimedb-lb
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "4000:4000"   # HTTP  ← schema/seed scripts use this
+      - "4003:4003"   # PostgreSQL  ← benchmark connects here
+    depends_on:
+      - frontend0
+      - frontend1
+
+volumes:
+  meta-postgres-data:
+  datanode0-data:
+  datanode1-data:
+  datanode2-data:
