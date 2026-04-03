@@ -89,6 +89,7 @@ services:
   frontend0:
     <<: [*greptimedb, *frontend-limits]
     container_name: greptimedb-frontend0
+    restart: on-failure
     command:
       - frontend
       - start
@@ -105,6 +106,7 @@ services:
   frontend1:
     <<: [*greptimedb, *frontend-limits]
     container_name: greptimedb-frontend1
+    restart: on-failure
     command:
       - frontend
       - start

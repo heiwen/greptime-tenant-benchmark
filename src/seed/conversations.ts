@@ -49,6 +49,25 @@ function randomTimestampInRange(startMs: number, endMs: number): Date {
   return new Date(startMs + Math.random() * (endMs - startMs));
 }
 
+async function retryInsert(fn: () => Promise<void>, retries = 10, delayMs = 15_000): Promise<void> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i === retries - 1) throw e;
+      console.log(`  [retry] Connection error, waiting ${delayMs / 1000}s for frontend to restart... (${i + 1}/${retries})`);
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+}
+
+async function countItems(strategy: Strategy, tableName: string, tenantId: string): Promise<number> {
+  const result = strategy === 'b'
+    ? await sql`SELECT COUNT(*) as c FROM conversation_items WHERE tenant_id = ${tenantId}`
+    : await sql`SELECT COUNT(*) as c FROM ${sql(tableName)}`;
+  return Number(result[0].c);
+}
+
 export async function seedConversationItems(
   strategy: Strategy,
   tenants: string[],
@@ -66,10 +85,6 @@ export async function seedConversationItems(
   const freshStart      = now - 7 * MS_PER_DAY;
   const freshEnd        = now;
 
-  const historicalCount = Math.floor(totalPerTenant * 0.75);
-  const recentCount     = Math.floor(totalPerTenant * 0.15);
-  const freshCount      = totalPerTenant - historicalCount - recentCount;
-
   const batchSize = config.seedBatchSize;
 
   for (let t = 0; t < tenants.length; t++) {
@@ -78,7 +93,14 @@ export async function seedConversationItems(
       ? tenantTable('conversation_items', tenantId)
       : 'conversation_items';
 
-    console.log(`[items] Tenant ${t + 1}/${tenants.length}: ${tenantId} → ${tableName}`);
+    const existing = await countItems(strategy, tableName, tenantId);
+    if (existing >= totalPerTenant) {
+      console.log(`[items] Tenant ${t + 1}/${tenants.length}: ${tenantId} → already complete (${existing} rows), skipping`);
+      continue;
+    }
+
+    const toInsert = totalPerTenant - existing;
+    console.log(`[items] Tenant ${t + 1}/${tenants.length}: ${tenantId} → ${tableName} (inserting ${toInsert})`);
 
     // Generate deterministic conversation IDs — must match what workloads query via tenantConversationId()
     const conversationIds: string[] = [];
@@ -87,12 +109,12 @@ export async function seedConversationItems(
     }
 
     const segments = [
-      { count: historicalCount, start: historicalStart, end: historicalEnd },
-      { count: recentCount,     start: recentStart,     end: recentEnd },
-      { count: freshCount,      start: freshStart,      end: freshEnd },
+      { count: Math.floor(toInsert * 0.75), start: historicalStart, end: historicalEnd },
+      { count: Math.floor(toInsert * 0.15), start: recentStart,     end: recentEnd },
+      { count: toInsert - Math.floor(toInsert * 0.75) - Math.floor(toInsert * 0.15), start: freshStart, end: freshEnd },
     ];
 
-    let totalInserted = 0;
+    let totalInserted = existing;
 
     for (const seg of segments) {
       let segInserted = 0;
@@ -108,7 +130,7 @@ export async function seedConversationItems(
           rows.push(row);
         }
 
-        await sql`INSERT INTO ${sql(tableName)} ${sql(rows)}`;
+        await retryInsert(() => sql`INSERT INTO ${sql(tableName)} ${sql(rows)}`);
 
         segInserted += thisBatch;
         totalInserted += thisBatch;
