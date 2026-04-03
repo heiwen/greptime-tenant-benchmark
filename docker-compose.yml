@@ -5,6 +5,10 @@ x-node-limits: &node-limits
   mem_limit: 8g
   cpus: "2"
 
+x-frontend-limits: &frontend-limits
+  mem_limit: 12g
+  cpus: "2"
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -83,7 +87,7 @@ services:
       - metasrv
 
   frontend0:
-    <<: [*greptimedb, *node-limits]
+    <<: [*greptimedb, *frontend-limits]
     container_name: greptimedb-frontend0
     command:
       - frontend
@@ -99,7 +103,7 @@ services:
       - datanode2
 
   frontend1:
-    <<: [*greptimedb, *node-limits]
+    <<: [*greptimedb, *frontend-limits]
     container_name: greptimedb-frontend1
     command:
       - frontend

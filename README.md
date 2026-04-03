@@ -16,7 +16,7 @@ The docker-compose runs a full GreptimeDB cluster on a single host alongside the
 | Component | Instances | vCPU | Memory |
 |---|---|---|---|
 | datanode | 3 | 2 each | 8 GiB each |
-| frontend | 2 | 2 each | 8 GiB each |
+| frontend | 2 | 2 each | 12 GiB each |
 | postgres + metasrv + haproxy | — | ~1 | ~2 GiB |
 | benchmark client (Bun) | — | ~2 | ~2 GiB |
 | **Total** | | **~17 vCPU** | **~54 GiB** |
