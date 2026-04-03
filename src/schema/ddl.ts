@@ -28,8 +28,8 @@ export function spansTableB(): string {
   gen_ai_input_messages STRING,
   gen_ai_output_messages STRING,
   span_attributes STRING,
-  span_events JSON,
-  span_links JSON,
+  span_events STRING,
+  span_links STRING,
   PRIMARY KEY (service_name)
 )
 ${PARTITION_CLAUSE_ON('tenant_id')}
@@ -65,8 +65,8 @@ export function spansTableA(tenantId: string): string {
   gen_ai_input_messages STRING,
   gen_ai_output_messages STRING,
   span_attributes STRING,
-  span_events JSON,
-  span_links JSON,
+  span_events STRING,
+  span_links STRING,
   PRIMARY KEY (service_name)
 )
 WITH ('append_mode' = 'true')`;

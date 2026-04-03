@@ -108,8 +108,8 @@ CREATE TABLE spans (
 
   -- Overflow / compound fields
   span_attributes        STRING,
-  span_events            JSON,
-  span_links             JSON,
+  span_events            STRING,   -- JSON; stored as STRING (GreptimeDB JSON type unsupported via pg wire)
+  span_links             STRING,   -- JSON
 
   PRIMARY KEY (service_name)
 )

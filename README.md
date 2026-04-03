@@ -88,7 +88,7 @@ All subsequent steps run **on the instance** over this session.
 
 ```bash
 # Amazon Linux 2023 — installs Docker CE with compose plugin
-sudo dnf install -y git
+sudo dnf install -y git tmux
 sudo dnf install -y dnf-plugins-core
 sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
 sudo sed -i 's/\$releasever/9/g' /etc/yum.repos.d/docker-ce.repo
@@ -155,11 +155,16 @@ bun run schema:create -- --strategy a
 Full scale (~1.7 TB uncompressed, expect 3–6 hours depending on instance):
 
 ```bash
-# Strategy B
-bun run seed -- --strategy b
+tmux new -s seed
+bun run seed -- --strategy b && bun run seed -- --strategy a
+```
 
-# Strategy A
-bun run seed -- --strategy a
+Detach so the seed keeps running after you disconnect: `Ctrl+B` then `D`.
+
+Re-attach after reconnecting:
+
+```bash
+tmux attach -t seed
 ```
 
 Scale is controlled by env vars (defaults shown):
