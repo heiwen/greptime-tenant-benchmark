@@ -36,10 +36,7 @@ Minimum viable (smoke runs only): `r6i.2xlarge` — 8 vCPU, 64 GiB, 200 GB gp3.
 ### 1. Launch the instance
 
 ```bash
-export AWS_REGION=us-east-1
-
 AMI_ID=$(aws ec2 describe-images \
-  --region $AWS_REGION \
   --owners amazon \
   --filters "Name=name,Values=al2023-ami-2023*-x86_64" \
             "Name=state,Values=available" \
@@ -47,7 +44,6 @@ AMI_ID=$(aws ec2 describe-images \
   --output text)
 
 INSTANCE_ID=$(aws ec2 run-instances \
-  --region $AWS_REGION \
   --image-id $AMI_ID \
   --instance-type r6i.4xlarge \
   --block-device-mappings '[{
@@ -58,7 +54,7 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --query 'Instances[0].InstanceId' \
   --output text)
 
-aws ec2 wait instance-running --region $AWS_REGION --instance-ids $INSTANCE_ID
+aws ec2 wait instance-running --instance-ids $INSTANCE_ID
 ```
 
 ### 2. Connect
@@ -66,10 +62,7 @@ aws ec2 wait instance-running --region $AWS_REGION --instance-ids $INSTANCE_ID
 EC2 Instance Connect pushes a temporary key using your AWS credentials — no key pair needed.
 
 ```bash
-aws ec2-instance-connect ssh \
-  --region $AWS_REGION \
-  --instance-id $INSTANCE_ID \
-  --os-user ec2-user
+aws ec2-instance-connect ssh --instance-id $INSTANCE_ID --os-user ec2-user
 ```
 
 All subsequent steps run **on the instance** over this session.
@@ -97,7 +90,7 @@ bun --version
 ### 5. Clone the repo and install dependencies
 
 ```bash
-git clone <repo-url> greptime-tenant-benchmark
+git clone https://github.com/heiwen/greptime-tenant-benchmark.git greptime-tenant-benchmark
 cd greptime-tenant-benchmark
 bun install
 ```
@@ -252,23 +245,21 @@ docker compose down
 From your local machine (re-run the lookup if you've opened a new terminal):
 
 ```bash
-export AWS_REGION=us-east-1
 INSTANCE_ID=$(aws ec2 describe-instances \
-  --region $AWS_REGION \
   --filters "Name=tag:Name,Values=greptimedb-bench" \
             "Name=instance-state-name,Values=running,stopped" \
   --query 'Reservations[0].Instances[0].InstanceId' \
   --output text)
 
 # Stop — pauses compute billing, keeps EBS data (resume later with start)
-aws ec2 stop-instances --region $AWS_REGION --instance-ids $INSTANCE_ID
+aws ec2 stop-instances --instance-ids $INSTANCE_ID
 
 # Start again
-aws ec2 start-instances --region $AWS_REGION --instance-ids $INSTANCE_ID
-aws ec2 wait instance-running --region $AWS_REGION --instance-ids $INSTANCE_ID
+aws ec2 start-instances --instance-ids $INSTANCE_ID
+aws ec2 wait instance-running --instance-ids $INSTANCE_ID
 
 # Terminate — destroys instance and EBS volume, no further charges
-aws ec2 terminate-instances --region $AWS_REGION --instance-ids $INSTANCE_ID
+aws ec2 terminate-instances --instance-ids $INSTANCE_ID
 ```
 
 Note: the public IP changes after a stop/start. Re-run the `describe-instances` command to get the new one.
