@@ -6,7 +6,7 @@ x-node-limits: &node-limits
   cpus: "2"
 
 x-frontend-limits: &frontend-limits
-  mem_limit: 12g
+  mem_limit: 24g
   cpus: "2"
 
 services:
