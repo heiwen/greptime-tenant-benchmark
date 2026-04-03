@@ -97,6 +97,7 @@ export function generateSpanRow(tenantId: string | null, timestampMs: number): R
     gen_ai_output_messages: outputMessages,
     span_attributes: randomJson(200),
     span_events: '[]',
+    span_links: '[]',
   };
 
   if (tenantId !== null) {

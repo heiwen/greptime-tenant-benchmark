@@ -127,8 +127,8 @@ Expect: 3 DATANODEs, 2 FRONTENDs, 1 METASRV. Each datanode should show `leader_r
 Strategy B must be created first — it generates `results/tenants.json` (the tenant UUIDs used by both strategies).
 
 ```bash
-PARTITION_ENABLED=1 bun run schema:create -- --strategy b
-PARTITION_ENABLED=1 bun run schema:create -- --strategy a
+bun run schema:create -- --strategy b
+bun run schema:create -- --strategy a
 ```
 
 ### Step 3 — Seed data
@@ -137,10 +137,10 @@ Full scale (~1.7 TB uncompressed, expect 3–6 hours depending on instance):
 
 ```bash
 # Strategy B
-PARTITION_ENABLED=1 bun run seed -- --strategy b
+bun run seed -- --strategy b
 
 # Strategy A
-PARTITION_ENABLED=1 bun run seed -- --strategy a
+bun run seed -- --strategy a
 ```
 
 Scale is controlled by env vars (defaults shown):
@@ -157,7 +157,6 @@ Scale is controlled by env vars (defaults shown):
 For a **smoke run** to verify everything works before committing to full seeding:
 
 ```bash
-PARTITION_ENABLED=1 \
 TENANT_COUNT=10 \
 SPANS_PER_TENANT=5000 \
 ITEMS_PER_TENANT=10000 \
@@ -172,13 +171,13 @@ bun run seed -- --strategy b
 Run all scenarios for both strategies (the full matrix takes ~2.5 hours):
 
 ```bash
-PARTITION_ENABLED=1 bun run bench
+bun run bench
 ```
 
 Run a specific subset by name (comma-separated):
 
 ```bash
-PARTITION_ENABLED=1 bun run bench -- \
+bun run bench -- \
   --strategy both \
   --scenario w2-1vu,w2-10vu,w2-50vu,q-time-1h-10vu,q-time-24h-10vu,mixed-10vu
 ```
@@ -186,7 +185,7 @@ PARTITION_ENABLED=1 bun run bench -- \
 Skip the 60 s warm-up and Prometheus scraping for quick iteration:
 
 ```bash
-PARTITION_ENABLED=1 bun run bench -- --no-warmup --skip-scrape
+bun run bench -- --no-warmup --skip-scrape
 ```
 
 #### Available scenarios
@@ -272,7 +271,6 @@ Note: the public IP changes after a stop/start. Re-run the `describe-instances` 
 |---|---|---|
 | `GREPTIMEDB_URL` | `postgres://greptime@localhost:4003/public` | Connection string (points at HAProxy) |
 | `GREPTIMEDB_PROMETHEUS_URL` | `http://localhost:4000/metrics` | Prometheus scrape endpoint |
-| `PARTITION_ENABLED` | _(unset)_ | Set to `1` to enable `PARTITION ON COLUMNS` in DDL |
 | `TENANT_COUNT` | `100` | |
 | `SPANS_PER_TENANT` | `500000` | |
 | `ITEMS_PER_TENANT` | `1000000` | |

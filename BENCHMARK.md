@@ -64,18 +64,18 @@ distributed across 0–f, so load is evenly spread across 16 partitions.
 
 ```sql
 -- Strategy B (shared table).
--- For Strategy A: remove tenant_id column and PRIMARY KEY entry; no PARTITION clause.
+-- For Strategy A: remove tenant_id column; no PARTITION clause.
 CREATE TABLE spans (
-  -- Tenant
+  -- Tenant (Strategy B only)
   tenant_id              VARCHAR(36)   NOT NULL  INVERTED INDEX,
 
   -- Timing (reserved word — must be quoted)
   "timestamp"            TIMESTAMP(9)  NOT NULL TIME INDEX,
   timestamp_end          TIMESTAMP(9),
-  duration_nano          BIGINT,
+  duration_nano          BIGINT UNSIGNED,
 
   -- Identifiers
-  trace_id               VARCHAR(32)   NOT NULL  SKIPPING INDEX WITH (type='BLOOM', granularity=1024),
+  trace_id               VARCHAR(32)   NOT NULL  SKIPPING INDEX WITH (type='BLOOM', granularity=10240),
   span_id                VARCHAR(16)   NOT NULL,
   parent_span_id         VARCHAR(16),
 
@@ -87,7 +87,8 @@ CREATE TABLE spans (
   trace_state            VARCHAR(256),
 
   -- Service / scope
-  service_name           VARCHAR(256)  INVERTED INDEX,
+  -- SKIPPING BLOOM matches official greptime_trace_v1 model; service_name is the series key
+  service_name           STRING        SKIPPING INDEX WITH (granularity=10240, type='BLOOM'),
   scope_name             VARCHAR(256),
   scope_version          VARCHAR(64),
 
@@ -106,10 +107,11 @@ CREATE TABLE spans (
   gen_ai_output_messages STRING,   -- JSON, opt-in
 
   -- Overflow / compound fields
-  span_attributes        STRING,   -- JSON
-  span_events            STRING,   -- JSON
+  span_attributes        STRING,
+  span_events            JSON,
+  span_links             JSON,
 
-  PRIMARY KEY (tenant_id, span_id)
+  PRIMARY KEY (service_name)
 )
 PARTITION ON COLUMNS (tenant_id) (
   -- 16 ranges as listed in the Strategy B section above
@@ -121,19 +123,22 @@ WITH ('append_mode' = 'true');
 
 ```sql
 -- Strategy B (shared table).
--- For Strategy A: remove tenant_id; partition on conversation_id using the same 16-range hex scheme.
+-- For Strategy A: remove tenant_id column; no PARTITION clause.
 CREATE TABLE conversation_items (
   tenant_id       VARCHAR(36)   NOT NULL  INVERTED INDEX,
   "id"            VARCHAR(36)   NOT NULL,   -- UUIDv4 (reserved word — must be quoted)
-  conversation_id VARCHAR(36)   NOT NULL  INVERTED INDEX,
+  -- SKIPPING BLOOM for high-cardinality UUID equality lookups (WHERE conversation_id = ?)
+  conversation_id VARCHAR(36)   NOT NULL  SKIPPING INDEX WITH (type='BLOOM', granularity=10240),
   created_at      TIMESTAMP(3)  NOT NULL TIME INDEX,
   "type"          VARCHAR(64),              -- reserved word — must be quoted
   "data"          STRING,                   -- JSON, item payload (reserved word — must be quoted)
-  PRIMARY KEY (tenant_id, conversation_id, "id")
+  -- No PRIMARY KEY tag: conversation_id has 50K distinct UUIDs per tenant (avg 20 rows/series).
+  -- Purely time-ordered within each tenant partition; BLOOM index handles conversation lookups.
 )
 PARTITION ON COLUMNS (tenant_id) (
   -- 16 ranges as above
-);
+)
+WITH ('append_mode' = 'true');
 ```
 
 ---
@@ -226,7 +231,7 @@ N drawn from 10–30 uniform
 ```
 
 Each item is inserted individually (no batch INSERT) with a 1 ms timestamp
-offset per item to ensure unique `(PRIMARY KEY, TIME INDEX)` values.
+offset per item to ensure unique TIME INDEX values within a conversation.
 
 Measure end-to-end wall time per batch (sum of all sequential inserts for one
 conversation).
@@ -487,7 +492,7 @@ builds; standard extended query protocol works.
   - 2 × frontend — 2 vCPU / 8 GiB each
   - HAProxy load balancer — round-robins client connections across both frontends
   - PostgreSQL 17 as metasrv metadata backend (`--backend=postgres-store`)
-  - Partitioning enabled (`PARTITION_ENABLED=1`) — 16 partitions distributed across datanodes
+  - 16 partitions distributed across datanodes
 - **Block cache**: leave at GreptimeDB default values — document the configured
   instance memory so results can be interpreted in context
 - **Client machine**: separate host, same network / AZ, to avoid co-location effects
@@ -499,7 +504,6 @@ builds; standard extended query protocol works.
 For local iteration without the full dataset, override scale via env vars:
 
 ```bash
-PARTITION_ENABLED=1 \
 TENANT_COUNT=10 \
 SPANS_PER_TENANT=5000 \
 ITEMS_PER_TENANT=10000 \
