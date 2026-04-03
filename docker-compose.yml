@@ -19,6 +19,7 @@ services:
   metasrv:
     <<: *greptimedb
     container_name: greptimedb-metasrv
+    restart: on-failure
     command:
       - metasrv
       - start

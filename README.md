@@ -57,7 +57,24 @@ INSTANCE_ID=$(aws ec2 run-instances \
 aws ec2 wait instance-running --instance-ids $INSTANCE_ID
 ```
 
-### 2. Connect
+### 2. Open SSH access
+
+EC2 Instance Connect still connects over port 22 — open it on the default security group:
+
+```bash
+SG_ID=$(aws ec2 describe-instances \
+  --instance-ids $INSTANCE_ID \
+  --query 'Reservations[0].Instances[0].SecurityGroups[0].GroupId' \
+  --output text)
+
+aws ec2 authorize-security-group-ingress \
+  --group-id $SG_ID \
+  --protocol tcp \
+  --port 22 \
+  --cidr 0.0.0.0/0
+```
+
+### 3. Connect
 
 EC2 Instance Connect pushes a temporary key using your AWS credentials — no key pair needed.
 
@@ -67,19 +84,21 @@ aws ec2-instance-connect ssh --instance-id $INSTANCE_ID --os-user ec2-user
 
 All subsequent steps run **on the instance** over this session.
 
-### 3. Install Docker
+### 4. Install Docker
 
 ```bash
-# Amazon Linux 2023
-sudo dnf install -y docker
+# Amazon Linux 2023 — installs Docker CE with compose plugin
+sudo dnf install -y git
+sudo dnf install -y dnf-plugins-core
+sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+sudo sed -i 's/\$releasever/9/g' /etc/yum.repos.d/docker-ce.repo
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 sudo systemctl enable --now docker
 sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-For Ubuntu 24.04, use the [official Docker apt install](https://docs.docker.com/engine/install/ubuntu/).
-
-### 3. Install Bun
+### 5. Install Bun
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
@@ -87,7 +106,7 @@ source ~/.bashrc
 bun --version
 ```
 
-### 5. Clone the repo and install dependencies
+### 6. Clone the repo and install dependencies
 
 ```bash
 git clone https://github.com/heiwen/greptime-tenant-benchmark.git greptime-tenant-benchmark
