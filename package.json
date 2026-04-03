@@ -1,0 +1,17 @@
+{
+  "name": "greptime-tenant-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "schema:create": "bun run src/schema/create.ts",
+    "schema:drop": "bun run src/schema/drop.ts",
+    "seed": "bun run src/seed/index.ts",
+    "bench": "bun run src/runner/index.ts"
+  },
+  "dependencies": {
+    "postgres": "^3.4.4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
