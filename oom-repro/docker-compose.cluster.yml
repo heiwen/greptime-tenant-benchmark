@@ -1,0 +1,121 @@
+x-greptimedb: &greptimedb
+  image: greptime/greptimedb:v1.0.0-rc.2-nightly-20260330
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: repro-postgres
+    environment:
+      POSTGRES_USER: greptime
+      POSTGRES_PASSWORD: greptime
+      POSTGRES_DB: metasrv
+
+  metasrv:
+    <<: *greptimedb
+    container_name: repro-metasrv
+    restart: on-failure
+    command:
+      - metasrv
+      - start
+      - --rpc-bind-addr=0.0.0.0:3002
+      - --rpc-server-addr=metasrv:3002
+      - --backend=postgres-store
+      - "--store-addrs=host=postgres port=5432 user=greptime password=greptime dbname=metasrv"
+    depends_on:
+      - postgres
+
+  datanode0:
+    <<: *greptimedb
+    container_name: repro-datanode0
+    mem_limit: 8g
+    command:
+      - datanode
+      - start
+      - --node-id=0
+      - --data-home=/data
+      - --rpc-bind-addr=0.0.0.0:3001
+      - --rpc-server-addr=datanode0:3001
+      - --metasrv-addrs=metasrv:3002
+    volumes:
+      - datanode0-data:/data
+    depends_on:
+      - metasrv
+
+  datanode1:
+    <<: *greptimedb
+    container_name: repro-datanode1
+    mem_limit: 8g
+    command:
+      - datanode
+      - start
+      - --node-id=1
+      - --data-home=/data
+      - --rpc-bind-addr=0.0.0.0:3001
+      - --rpc-server-addr=datanode1:3001
+      - --metasrv-addrs=metasrv:3002
+    volumes:
+      - datanode1-data:/data
+    depends_on:
+      - metasrv
+
+  datanode2:
+    <<: *greptimedb
+    container_name: repro-datanode2
+    mem_limit: 8g
+    command:
+      - datanode
+      - start
+      - --node-id=2
+      - --data-home=/data
+      - --rpc-bind-addr=0.0.0.0:3001
+      - --rpc-server-addr=datanode2:3001
+      - --metasrv-addrs=metasrv:3002
+    volumes:
+      - datanode2-data:/data
+    depends_on:
+      - metasrv
+
+  frontend0:
+    <<: *greptimedb
+    container_name: repro-frontend0
+    command:
+      - frontend
+      - start
+      - --metasrv-addrs=metasrv:3002
+      - --postgres-addr=0.0.0.0:4003
+    depends_on:
+      - datanode0
+      - datanode1
+      - datanode2
+
+  frontend1:
+    <<: *greptimedb
+    container_name: repro-frontend1
+    ports:
+      - "4000:4000"
+    command:
+      - frontend
+      - start
+      - --metasrv-addrs=metasrv:3002
+      - --postgres-addr=0.0.0.0:4003
+      - --http-addr=0.0.0.0:4000
+    depends_on:
+      - datanode0
+      - datanode1
+      - datanode2
+
+  haproxy:
+    image: haproxy:lts-alpine
+    container_name: repro-haproxy
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "4003:4003"
+    depends_on:
+      - frontend0
+      - frontend1
+
+volumes:
+  datanode0-data:
+  datanode1-data:
+  datanode2-data:
