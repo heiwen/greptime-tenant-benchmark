@@ -75,24 +75,12 @@ services:
     depends_on:
       - metasrv
 
-  frontend0:
+  frontend:
     <<: *greptimedb
-    container_name: repro-frontend0
-    command:
-      - frontend
-      - start
-      - --metasrv-addrs=metasrv:3002
-      - --postgres-addr=0.0.0.0:4003
-    depends_on:
-      - datanode0
-      - datanode1
-      - datanode2
-
-  frontend1:
-    <<: *greptimedb
-    container_name: repro-frontend1
+    container_name: repro-frontend
     ports:
       - "4000:4000"
+      - "5433:4003"
     command:
       - frontend
       - start
@@ -103,17 +91,6 @@ services:
       - datanode0
       - datanode1
       - datanode2
-
-  haproxy:
-    image: haproxy:lts-alpine
-    container_name: repro-haproxy
-    volumes:
-      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    ports:
-      - "4003:4003"
-    depends_on:
-      - frontend0
-      - frontend1
 
 volumes:
   datanode0-data:

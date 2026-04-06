@@ -1,26 +1,31 @@
-# Frontend memory leak: linear RSS growth with variable-size rows in partitioned table
+# Frontend memory leak: linear RSS growth during INSERT with many-column schema
 
 ## Version
 
-`greptime/greptimedb:v1.0.0-rc.2-nightly-20260330`
+`greptime/greptimedb:v1.0.0-rc.2-nightly-20260330` — [GreptimeTeam/greptimedb](https://github.com/GreptimeTeam/greptimedb)
 
 ## Summary
 
-The GreptimeDB frontend leaks memory during INSERT into a partitioned `append_mode = true` table when batches contain rows of variable sizes. RSS grows at ~26 MB per 1,000 rows and does not stabilise. The frontend was OOM-killed by the host at 138K rows with RSS at ~4 GiB; the frontends have no `mem_limit` set in the compose file (only datanodes do).
+The GreptimeDB frontend leaks memory during INSERT into an `append_mode = true` table when the schema has enough columns. For the full 28-column schema, RSS grows at ~26 MB per 1,000 rows and does not stabilise; the rate scales proportionally with column count. The frontend was OOM-killed at 138K rows with RSS at ~4 GiB.
 
-The leak seems to require two conditions to be present simultaneously:
-1. A table with multiple columns including large `STRING` fields (the full spans schema)
-2. INSERT batches where rows have varying field sizes (the tier distribution produces mixed 2 KB–430 KB rows)
+The threshold is somewhere between 4 and 5 columns: a 4-column schema is stable at 385K rows; a 5-column schema leaks at ~5 MB/1K rows. Row size uniformity does not matter — uniform-size batches leak at the same rate as variable-size batches. Partitioning and index definitions are not required to trigger the leak.
 
-Uniform-size batches — even at 430 KB per row — do not leak.
+## Environment
+
+Reproduced on two hosts:
+
+- **macOS 15** (Darwin 25.2.0), Docker Desktop
+- **AWS EC2 `r6i.4xlarge`** — 16 vCPU, 128 GiB RAM, Amazon Linux 2023 (x86_64), EBS gp3
+
+Both run GreptimeDB inside Linux Docker containers.
 
 ## Cluster setup
 
-3 datanodes + 2 frontends behind HAProxy, PostgreSQL-backed metasrv. Same topology as the benchmark's `docker-compose.yml`.
+3 datanodes + 1 frontend, PostgreSQL-backed metasrv. See `docker-compose.cluster.yml`.
 
 ## Reproducing the leak
 
-**Table schema** (`repro.ts`):
+**Table schema** ([`oom-repro/repro.ts`](https://github.com/heiwen/greptime-tenant-benchmark/blob/master/oom-repro/repro.ts)):
 
 ```sql
 CREATE TABLE spans (
@@ -36,7 +41,7 @@ CREATE TABLE spans (
   span_attributes STRING,
   PRIMARY KEY (service_name)
 )
-PARTITION ON COLUMNS (tenant_id) ( /* 16 hex-range partitions */ )
+PARTITION ON COLUMNS (tenant_id) ( /* 16 hex-range partitions */ )  -- not required; unpartitioned also leaks
 WITH ('append_mode' = 'true')
 ```
 
@@ -50,7 +55,7 @@ WITH ('append_mode' = 'true')
 | large | 12% | ~90 KB |
 | xlarge | 3% | ~430 KB |
 
-**Observed memory growth** (frontend1, other frontend idle):
+**Observed memory growth** (`repro-frontend`):
 
 | Rows inserted | Memory |
 |---|---|
@@ -61,7 +66,7 @@ WITH ('append_mode' = 'true')
 
 Growth rate: ~26 MB / 1,000 rows.
 
-**Run `repro.ts` to reproduce:**
+**Run `repro.ts` to reproduce** ([heiwen/greptime-tenant-benchmark/oom-repro](https://github.com/heiwen/greptime-tenant-benchmark/tree/master/oom-repro)):
 
 ```
 cd oom-repro
@@ -71,28 +76,30 @@ bun run repro.ts
 
 ## Isolation tests
 
-The following tests were run to narrow down which conditions trigger the growth:
+| Schema | Row size | Rows tested | Peak RSS | Leak? |
+|---|---|---|---|---|
+| 4-column | Uniform ~20 KB | 385,000 | 330 MiB | No |
+| **5-column** | **Uniform ~20 KB** | **193,000** | **1.28 GiB** | **Yes** |
+| 7-column | Variable 2–430 KB | 475,000 | 3.0 GiB | Yes |
+| 8-column | Variable 2–430 KB | 449,000 | 2.8 GiB | Yes |
+| 10-column | Variable 2–430 KB | 337,000 | ~4 GiB | Yes |
+| 12-column | Variable 2–430 KB | 309,000 | ~4 GiB | Yes |
+| 17-column | Variable 2–430 KB | 193,000 | ~4.2 GiB | Yes |
+| 28-column, no indexes | Variable 2–430 KB | 156,000 | 4.3 GiB | Yes |
+| 28-column | Uniform ~20 KB | 160,000 | ~4.25 GiB | Yes |
+| 28-column, no partitioning | Uniform ~20 KB | 125,000 | ~3.5 GiB | Yes |
 
-| Test | Schema | Row size | Rows tested | Peak memory | Leak? |
-|---|---|---|---|---|---|
-| A | Full spans (25 col) | Uniform tiny (~100 B) | 2,400,000 | 465 MiB | No |
-| B | Simple 4-column | Uniform xlarge (430 KB) | 70,000 | 1,045 MiB | No |
-| C | Full spans (25 col) | Uniform xlarge (430 KB) | 50,000 | 1,232 MiB | No |
-| D | Full spans (25 col) | Uniform medium (~20 KB) | 1,850,000 | 525 MiB | No |
-| E | Simple 4-column | Uniform-random 2–430 KB | 146,000 | 944 MiB | No |
-| **F** | **Full spans (25 col)** | **Mixed tiny/small/medium (max 20 KB)** | **174,000** | **3.88 GiB** | **Yes** |
-| **Full** | **Full spans (25 col)** | **Full tier distribution** | **138,000** | **3.97 GiB** | **Yes** |
+All tests connect directly to a single frontend. Key findings:
 
-Key observations:
-- Schema complexity alone did not trigger the leak (Test A: 2.4M rows, stable)
-- Large payloads alone did not trigger the leak (Tests B, C: stable)
-- A simplified 4-column schema did not leak under any conditions tested, including variable 2–430 KB payloads
-- **Mixed row sizes with the full schema triggered the leak** (Test F: leaks even with 20 KB ceiling)
-- The growth rate is similar in Tests F and Full (~26 MB/1K rows), whether or not xlarge rows are present
+- **The leak rate scales proportionally with column count**: ~6 MB/1K rows at 7 columns, ~26 MB/1K rows at 28 columns, consistent with ~(col/28) × 26 MB/1K
+- **A 4-column schema does not leak** at 385K rows; a 5-column schema leaks at ~5 MB/1K rows — the threshold is between 4 and 5 columns
+- **Uniform row sizes also leak** at the same rate — row size variation is not required
+- **Index definitions are not required** — removing all indexes from the 28-column schema does not change the leak rate
+- **Partitioning is not required** — an unpartitioned 28-column table leaks at the same rate
 
 ## Source code investigation
 
-A read-through of the GreptimeDB frontend source was done by AI to try to understand the mechanism. No definitive root cause was identified — a heap profile (see below) would be needed to confirm. What follows is the current best hypothesis based on that reading.
+A read-through of the GreptimeDB frontend source by AI was done to understand the mechanism. The heap profiling (see below) suggests a true reference leak, but the exact allocation site was not identified — a flamegraph heap profile would be needed to pinpoint it. What follows is the current best hypothesis based on the source reading and the proportional scaling finding.
 
 ### Observed: SQL INSERT pipeline passes data through multiple copies
 
@@ -113,11 +120,11 @@ The MySQL handler (`servers/src/mysql/handler.rs:311`) follows the same path: it
 
 ### OTLP takes a different path
 
-The OTLP trace handler (`servers/src/otlp/trace/v1.rs`) does not go through SQL execution at all. It parses the protobuf payload and builds `RowInsertRequests` directly using `row_writer` functions, then calls `handle_trace_inserts` on the operator, skipping steps 1–5 entirely. The operator-level partition split (`splitter.rs:88`) uses `std::mem::take` to move rows into partition buckets without copying string data, so the row strings are moved rather than copied through the entire pipeline. The net result is roughly two copies (protobuf parse → owned `String`, then Prost serialisation to wire bytes) vs five or six for the SQL path. 
+The OTLP trace handler (`servers/src/otlp/trace/v1.rs`) does not go through SQL execution at all. It parses the protobuf payload and builds `RowInsertRequests` directly using `row_writer` functions, then calls `handle_trace_inserts` on the operator, skipping steps 1–5 entirely. The operator-level partition split (`splitter.rs:88`) uses `std::mem::take` to move rows into partition buckets without copying string data, so the row strings are moved rather than copied through the entire pipeline. The net result is roughly two copies (protobuf parse → owned `String`, then Prost serialisation to wire bytes) vs five or six for the SQL path.
 
 ### Heap profile confirms a true reference leak
 
-The jemalloc fragmentation hypothesis was tested by polling `sys_jemalloc_allocated` (live bytes held by the application) alongside RSS while running the full repro workload:
+Growing RSS could in principle be explained by jemalloc heap fragmentation — dirty pages accumulating in the allocator without being returned to the OS — rather than a true reference leak. To distinguish between the two, `sys_jemalloc_allocated` (live bytes held by the application) was polled alongside RSS while running the full repro workload:
 
 | Rows inserted | allocated | resident | RSS |
 |---|---|---|---|
@@ -136,10 +143,8 @@ The source code investigation did not find an obvious accumulation site, so the 
 
 ### Suggested next steps
 
-A flamegraph heap profile (via GreptimeDB's `/debug/prof/mem` endpoint, which requires the binary to be built with `MALLOC_CONF=prof:true`) would show which allocation site is responsible for the retained ~24 MB/1K rows. The `allocated` growth rate of ~24 MB/1K rows against an average row payload of ~33 KB suggests roughly 70% of each row's data is being held alive somewhere after the INSERT completes.
+A flamegraph heap profile (via GreptimeDB's `/debug/prof/mem` endpoint, which requires the binary to be built with `MALLOC_CONF=prof:true`) would show which allocation site is responsible for the retained ~24 MB/1K rows. The `allocated` growth rate scales proportionally with column count across all tested schemas (5–28 columns), consistent with a per-parameter retention mechanism: a 28-column × 100-row batch produces 2,800 bound parameters, and retaining those would account for the observed growth rate.
 
-### What reducing plan cloning would and would not fix
+### Worthwhile improvement: reduce plan cloning in the SQL INSERT path
 
-The `plan.clone()` calls at `instance.rs:646` and `datafusion.rs:132` increase peak in-flight memory per request but do not by themselves explain persistent retention — those clones are local variables that should be freed when the request completes. Eliminating them is still worthwhile to reduce peak memory pressure, but is unlikely to fix the leak.
-
-Note: jemalloc allocator tuning (`dirty_decay_ms`, `background_thread`) has no effect on a true reference leak and is not a useful mitigation here.
+The `plan.clone()` calls at `instance.rs:646` and `datafusion.rs:132` cause copies 2, 3, and 4 to coexist in memory simultaneously, multiplying peak in-flight memory for large batches. Eliminating these redundant clones would meaningfully reduce per-request memory pressure — independently of the leak. They are not the root cause of persistent retention (both are local variables that are freed when the request completes), but removing them is a low-risk improvement that makes the pipeline cheaper regardless.

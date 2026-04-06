@@ -1,6 +1,6 @@
 import { SQL } from 'bun';
 
-const sql = new SQL('postgres://greptime@localhost:4003/public', {
+const sql = new SQL('postgres://greptime@localhost:5433/public', {
   max: 100,
   idleTimeout: 20,
   connectionTimeout: 10,
