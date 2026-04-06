@@ -25,7 +25,7 @@ The docker-compose runs a full GreptimeDB cluster on a single host alongside the
 
 EBS gp3 is intentionally used rather than NVMe instance storage. In production GreptimeDB stores SSTs in object storage (S3), so EBS latency characteristics are a closer approximation of real-world conditions than local NVMe.
 
-**EBS volume**: 500 GB gp3, 3000 IOPS / 125 MB/s baseline (default). Increase IOPS/throughput if seeding bottlenecks on disk write.
+**EBS volume**: 1500 GB gp3, 3000 IOPS / 125 MB/s baseline (default). Increase IOPS/throughput if seeding bottlenecks on disk write.
 
 Minimum viable (smoke runs only): `r6i.2xlarge` — 8 vCPU, 64 GiB, 200 GB gp3.
 
@@ -48,7 +48,7 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --instance-type r6i.4xlarge \
   --block-device-mappings '[{
     "DeviceName": "/dev/xvda",
-    "Ebs": {"VolumeSize": 500, "VolumeType": "gp3", "DeleteOnTermination": true}
+    "Ebs": {"VolumeSize": 1500, "VolumeType": "gp3", "DeleteOnTermination": true}
   }]' \
   --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=greptimedb-bench}]' \
   --query 'Instances[0].InstanceId' \
@@ -173,7 +173,7 @@ Scale is controlled by env vars (defaults shown):
 |---|---|---|
 | `TENANT_COUNT` | `100` | Number of tenants |
 | `SPANS_PER_TENANT` | `500000` | Spans per tenant |
-| `ITEMS_PER_TENANT` | `1000000` | Conversation items per tenant |
+| `ITEMS_PER_TENANT` | `1500000` | Conversation items per tenant |
 | `CONVERSATIONS_PER_TENANT` | `50000` | Distinct conversation IDs per tenant |
 | `SEED_BATCH_SIZE` | `500` | Rows per INSERT for conversation items |
 | `SPAN_BATCH_SIZE` | `100` | Spans per INSERT batch |
@@ -183,7 +183,7 @@ For a **smoke run** to verify everything works before committing to full seeding
 ```bash
 TENANT_COUNT=10 \
 SPANS_PER_TENANT=5000 \
-ITEMS_PER_TENANT=10000 \
+ITEMS_PER_TENANT=15000 \
 CONVERSATIONS_PER_TENANT=500 \
 bun run seed -- --strategy b
 
@@ -297,6 +297,6 @@ Note: the public IP changes after a stop/start. Re-run the `describe-instances` 
 | `GREPTIMEDB_PROMETHEUS_URL` | `http://localhost:4000/metrics` | Prometheus scrape endpoint |
 | `TENANT_COUNT` | `100` | |
 | `SPANS_PER_TENANT` | `500000` | |
-| `ITEMS_PER_TENANT` | `1000000` | |
+| `ITEMS_PER_TENANT` | `1500000` | |
 | `CONVERSATIONS_PER_TENANT` | `50000` | |
 | `RESULTS_DIR` | `./results` | Output directory for CSVs |
