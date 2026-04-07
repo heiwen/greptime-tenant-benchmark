@@ -1,0 +1,482 @@
+Loaded 100 tenants
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w2-1vu | Strategy A | 1 VUs | 120s
+  Single-tenant span write, 1 VU
+  Tenants: 1
+  Warm-up: 60s at 1 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 36 → results/scrape-a-w2-1vu-2026-04-07T03-37-02.json
+  Done: 16645 ops, 0 errors, p50=6.0ms p99=22.0ms QPS=138.71
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w2-10vu | Strategy A | 10 VUs | 120s
+  Multi-tenant span write, 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-w2-10vu-2026-04-07T03-37-02.json
+  Done: 18419 ops, 0 errors, p50=64.0ms p99=94.0ms QPS=153.42
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w2-50vu | Strategy A | 50 VUs | 120s
+  Multi-tenant span write, 50 VUs
+  Tenants: 50
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-w2-50vu-2026-04-07T03-37-02.json
+  Done: 15343 ops, 0 errors, p50=355.0ms p99=745.0ms QPS=127.58
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-1h-10vu | Strategy A | 10 VUs | 120s
+  Span time-range query (1h window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-q-time-1h-10vu-2026-04-07T03-37-02.json
+  Done: 11325 ops, 0 errors, p50=106.0ms p99=127.0ms QPS=94.30
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-24h-10vu | Strategy A | 10 VUs | 120s
+  Span time-range query (24h window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-q-time-24h-10vu-2026-04-07T03-37-02.json
+  Done: 12670 ops, 0 errors, p50=95.0ms p99=114.0ms QPS=105.51
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-7d-10vu | Strategy A | 10 VUs | 120s
+  Span time-range query (7d window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-q-time-7d-10vu-2026-04-07T03-37-02.json
+  Done: 10520 ops, 0 errors, p50=113.0ms p99=140.0ms QPS=87.58
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-id-10vu | Strategy A | 10 VUs | 120s
+  Span cursor-pagination query, 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-q-id-10vu-2026-04-07T03-37-02.json
+  Done: 0 ops, 52500 errors, p50=0.0ms p99=0.0ms QPS=0.00
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-full-10vu | Strategy A | 10 VUs | 120s
+  Span full SELECT * query, 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 40 → results/scrape-a-q-full-10vu-2026-04-07T03-37-02.json
+  Done: 189 ops, 145 errors, p50=4488.0ms p99=15024.0ms QPS=1.46
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w1-1vu | Strategy A | 1 VUs | 120s
+  Single-tenant conversation item write, 1 VU
+  Tenants: 1
+  Warm-up: 60s at 1 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-w1-1vu-2026-04-07T03-37-02.json
+  Done: 4578 ops, 0 errors, p50=26.0ms p99=41.0ms QPS=38.15
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w1-10vu | Strategy A | 10 VUs | 120s
+  Multi-tenant conversation item write, 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-w1-10vu-2026-04-07T03-37-02.json
+  Done: 5252 ops, 2310 errors, p50=223.0ms p99=342.0ms QPS=43.73
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w1-50vu | Strategy A | 50 VUs | 120s
+  Multi-tenant conversation item write, 50 VUs
+  Tenants: 50
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-w1-50vu-2026-04-07T03-37-02.json
+  Done: 5176 ops, 2638 errors, p50=1132.0ms p99=1721.0ms QPS=42.93
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-1h-10vu-s2 | Strategy A | 10 VUs | 120s
+  Conversation item time-range query (1h window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-q-time-1h-10vu-s2-2026-04-07T03-37-02.json
+  Done: 14574 ops, 6300 errors, p50=59.0ms p99=79.0ms QPS=121.38
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-24h-10vu-s2 | Strategy A | 10 VUs | 120s
+  Conversation item time-range query (24h window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-q-time-24h-10vu-s2-2026-04-07T03-37-02.json
+  Done: 9999 ops, 4264 errors, p50=86.0ms p99=121.0ms QPS=83.28
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-7d-10vu-s2 | Strategy A | 10 VUs | 120s
+  Conversation item time-range query (7d window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-q-time-7d-10vu-s2-2026-04-07T03-37-02.json
+  Done: 9229 ops, 3994 errors, p50=94.0ms p99=127.0ms QPS=76.86
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-id-10vu-s2 | Strategy A | 10 VUs | 120s
+  Conversation item cursor-pagination query, 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-a-q-id-10vu-s2-2026-04-07T03-37-02.json
+  Done: 4954 ops, 2127 errors, p50=175.0ms p99=255.0ms QPS=41.22
+
+────────────────────────────────────────────────────────────────────────────────
+Running: m1-1tenant | Strategy A | 50 VUs | 300s
+  Memory pressure: 50 VUs hammering 1 tenant, 5min
+  Tenants: 1
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 300s...
+  Prometheus snapshots: 74 → results/scrape-a-m1-1tenant-2026-04-07T03-37-02.json
+  Done: 0 ops, 33733 errors, p50=0.0ms p99=0.0ms QPS=0.00
+
+────────────────────────────────────────────────────────────────────────────────
+Running: m2-5tenants | Strategy A | 50 VUs | 300s
+  Memory pressure: 50 VUs across 5 tenants, 5min
+  Tenants: 5
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 300s...
+  Prometheus snapshots: 73 → results/scrape-a-m2-5tenants-2026-04-07T03-37-02.json
+  Done: 23876 ops, 15924 errors, p50=381.0ms p99=452.0ms QPS=79.49
+
+────────────────────────────────────────────────────────────────────────────────
+Running: m3-50tenants | Strategy A | 50 VUs | 300s
+  Memory pressure: 50 VUs across 50 tenants, 5min
+  Tenants: 50
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 300s...
+  Prometheus snapshots: 73 → results/scrape-a-m3-50tenants-2026-04-07T03-37-02.json
+  Done: 27772 ops, 14460 errors, p50=356.0ms p99=454.0ms QPS=92.45
+Skipping m4-50tenants-b for strategy A (B only)
+
+────────────────────────────────────────────────────────────────────────────────
+Running: mixed-10vu | Strategy A | 10 VUs | 900s
+  Mixed workload (70% read, 15% paginate, 10% span write, 5% item write), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 900s...
+  Prometheus snapshots: 192 → results/scrape-a-mixed-10vu-2026-04-07T03-37-02.json
+  Done: 139833 ops, 137540 errors, p50=20.0ms p99=258.0ms QPS=155.36
+
+────────────────────────────────────────────────────────────────────────────────
+Running: mixed-50vu | Strategy A | 50 VUs | 900s
+  Mixed workload, 50 VUs
+  Tenants: 50
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 900s...
+  Prometheus snapshots: 197 → results/scrape-a-mixed-50vu-2026-04-07T03-37-02.json
+  Done: 23261 ops, 23921 errors, p50=54.0ms p99=370.0ms QPS=25.42
+
+────────────────────────────────────────────────────────────────────────────────
+Running: mixed-100vu | Strategy A | 100 VUs | 900s
+  Mixed workload, 100 VUs
+  Tenants: 100
+  Warm-up: 60s at 100 VUs...
+  Warm-up complete.
+  Benchmark: 900s...
+  Prometheus snapshots: 194 → results/scrape-a-mixed-100vu-2026-04-07T03-37-02.json
+  Done: 21398 ops, 29062 errors, p50=84.0ms p99=368.0ms QPS=23.59
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w2-1vu | Strategy B | 1 VUs | 120s
+  Single-tenant span write, 1 VU
+  Tenants: 1
+  Warm-up: 60s at 1 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 36 → results/scrape-b-w2-1vu-2026-04-07T03-37-02.json
+  Done: 12811 ops, 0 errors, p50=8.0ms p99=25.0ms QPS=106.75
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w2-10vu | Strategy B | 10 VUs | 120s
+  Multi-tenant span write, 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 36 → results/scrape-b-w2-10vu-2026-04-07T03-37-02.json
+  Done: 16116 ops, 6883 errors, p50=48.0ms p99=100.0ms QPS=134.26
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w2-50vu | Strategy B | 50 VUs | 120s
+  Multi-tenant span write, 50 VUs
+  Tenants: 50
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-w2-50vu-2026-04-07T03-37-02.json
+  Done: 17815 ops, 5681 errors, p50=236.0ms p99=661.0ms QPS=148.23
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-1h-10vu | Strategy B | 10 VUs | 120s
+  Span time-range query (1h window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-q-time-1h-10vu-2026-04-07T03-37-02.json
+  Done: 10278 ops, 4416 errors, p50=84.0ms p99=148.0ms QPS=85.58
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-24h-10vu | Strategy B | 10 VUs | 120s
+  Span time-range query (24h window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-q-time-24h-10vu-2026-04-07T03-37-02.json
+  Done: 10347 ops, 4275 errors, p50=85.0ms p99=138.0ms QPS=86.18
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-7d-10vu | Strategy B | 10 VUs | 120s
+  Span time-range query (7d window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-q-time-7d-10vu-2026-04-07T03-37-02.json
+  Done: 7834 ops, 3391 errors, p50=111.0ms p99=201.0ms QPS=65.25
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-id-10vu | Strategy B | 10 VUs | 120s
+  Span cursor-pagination query, 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-q-id-10vu-2026-04-07T03-37-02.json
+  Done: 4704 ops, 2120 errors, p50=185.0ms p99=332.0ms QPS=39.13
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-full-10vu | Strategy B | 10 VUs | 120s
+  Span full SELECT * query, 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 40 → results/scrape-b-q-full-10vu-2026-04-07T03-37-02.json
+  Done: 53 ops, 97 errors, p50=10775.0ms p99=20617.0ms QPS=0.42
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w1-1vu | Strategy B | 1 VUs | 120s
+  Single-tenant conversation item write, 1 VU
+  Tenants: 1
+  Warm-up: 60s at 1 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-w1-1vu-2026-04-07T03-37-02.json
+  Done: 0 ops, 12265 errors, p50=0.0ms p99=0.0ms QPS=0.00
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w1-10vu | Strategy B | 10 VUs | 120s
+  Multi-tenant conversation item write, 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-w1-10vu-2026-04-07T03-37-02.json
+  Done: 2924 ops, 6772 errors, p50=351.0ms p99=860.0ms QPS=24.33
+
+────────────────────────────────────────────────────────────────────────────────
+Running: w1-50vu | Strategy B | 50 VUs | 120s
+  Multi-tenant conversation item write, 50 VUs
+  Tenants: 50
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-w1-50vu-2026-04-07T03-37-02.json
+  Done: 3091 ops, 10023 errors, p50=1676.0ms p99=2556.0ms QPS=25.59
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-1h-10vu-s2 | Strategy B | 10 VUs | 120s
+  Conversation item time-range query (1h window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-q-time-1h-10vu-s2-2026-04-07T03-37-02.json
+  Done: 5911 ops, 13582 errors, p50=65.0ms p99=96.0ms QPS=49.23
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-24h-10vu-s2 | Strategy B | 10 VUs | 120s
+  Conversation item time-range query (24h window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-q-time-24h-10vu-s2-2026-04-07T03-37-02.json
+  Done: 5746 ops, 13998 errors, p50=65.0ms p99=94.0ms QPS=47.86
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-time-7d-10vu-s2 | Strategy B | 10 VUs | 120s
+  Conversation item time-range query (7d window), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-q-time-7d-10vu-s2-2026-04-07T03-37-02.json
+  Done: 4230 ops, 9568 errors, p50=96.0ms p99=158.0ms QPS=35.23
+
+────────────────────────────────────────────────────────────────────────────────
+Running: q-id-10vu-s2 | Strategy B | 10 VUs | 120s
+  Conversation item cursor-pagination query, 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 120s...
+  Prometheus snapshots: 37 → results/scrape-b-q-id-10vu-s2-2026-04-07T03-37-02.json
+  Done: 3153 ops, 7519 errors, p50=125.0ms p99=232.0ms QPS=26.25
+
+────────────────────────────────────────────────────────────────────────────────
+Running: m1-1tenant | Strategy B | 50 VUs | 300s
+  Memory pressure: 50 VUs hammering 1 tenant, 5min
+  Tenants: 1
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 300s...
+  Prometheus snapshots: 73 → results/scrape-b-m1-1tenant-2026-04-07T03-37-02.json
+  Done: 0 ops, 73505 errors, p50=0.0ms p99=0.0ms QPS=0.00
+
+────────────────────────────────────────────────────────────────────────────────
+Running: m2-5tenants | Strategy B | 50 VUs | 300s
+  Memory pressure: 50 VUs across 5 tenants, 5min
+  Tenants: 5
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 300s...
+  Prometheus snapshots: 73 → results/scrape-b-m2-5tenants-2026-04-07T03-37-02.json
+  Done: 13905 ops, 20888 errors, p50=439.0ms p99=532.0ms QPS=46.29
+
+────────────────────────────────────────────────────────────────────────────────
+Running: m3-50tenants | Strategy B | 50 VUs | 300s
+  Memory pressure: 50 VUs across 50 tenants, 5min
+  Tenants: 50
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 300s...
+  Prometheus snapshots: 73 → results/scrape-b-m3-50tenants-2026-04-07T03-37-02.json
+  Done: 17160 ops, 21870 errors, p50=388.0ms p99=475.0ms QPS=57.12
+
+────────────────────────────────────────────────────────────────────────────────
+Running: m4-50tenants-b | Strategy B | 50 VUs | 300s
+  Memory pressure Strategy B: 50 VUs across 50 tenants, 5min
+  Tenants: 50
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 300s...
+  Prometheus snapshots: 73 → results/scrape-b-m4-50tenants-b-2026-04-07T03-37-02.json
+  Done: 18142 ops, 23165 errors, p50=368.0ms p99=462.0ms QPS=60.41
+
+────────────────────────────────────────────────────────────────────────────────
+Running: mixed-10vu | Strategy B | 10 VUs | 900s
+  Mixed workload (70% read, 15% paginate, 10% span write, 5% item write), 10 VUs
+  Tenants: 10
+  Warm-up: 60s at 10 VUs...
+  Warm-up complete.
+  Benchmark: 900s...
+  Prometheus snapshots: 192 → results/scrape-b-mixed-10vu-2026-04-07T03-37-02.json
+  Done: 28958 ops, 68320 errors, p50=78.0ms p99=1785.0ms QPS=32.17
+
+────────────────────────────────────────────────────────────────────────────────
+Running: mixed-50vu | Strategy B | 50 VUs | 900s
+  Mixed workload, 50 VUs
+  Tenants: 50
+  Warm-up: 60s at 50 VUs...
+  Warm-up complete.
+  Benchmark: 900s...
+  Prometheus snapshots: 193 → results/scrape-b-mixed-50vu-2026-04-07T03-37-02.json
+  Done: 39364 ops, 52358 errors, p50=407.0ms p99=8922.0ms QPS=43.71
+
+────────────────────────────────────────────────────────────────────────────────
+Running: mixed-100vu | Strategy B | 100 VUs | 900s
+  Mixed workload, 100 VUs
+  Tenants: 100
+  Warm-up: 60s at 100 VUs...
+  Warm-up complete.
+  Benchmark: 900s...
+  Prometheus snapshots: 193 → results/scrape-b-mixed-100vu-2026-04-07T03-37-02.json
+  Done: 38307 ops, 63956 errors, p50=691.0ms p99=16994.0ms QPS=42.52
+
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+Workload                      Strategy  Scenario  VUs   Count     Errors  p50ms   p90ms   p95ms   p99ms   QPS       MB/s    
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+w2-1vu                        A         S1        1     16645     0       6.0     13.0    15.0    22.0    138.71    23.250  
+w2-10vu                       A         S1        10    18419     0       64.0    77.0    82.0    94.0    153.42    24.927  
+w2-50vu                       A         S1        50    15343     0       355.0   422.0   536.0   745.0   127.58    20.746  
+q-time-1h-10vu                A         S1        10    11325     0       106.0   118.0   122.0   127.0   94.30     0.000   
+q-time-24h-10vu               A         S1        10    12670     0       95.0    106.0   109.0   114.0   105.51    0.000   
+q-time-7d-10vu                A         S1        10    10520     0       113.0   127.0   131.0   140.0   87.58     0.000   
+q-id-10vu                     A         S1        10    0         52500   0.0     0.0     0.0     0.0     0.00      0.000   
+q-full-10vu                   A         S1        10    189       145     4488.0  10422.0 12513.0 15024.0 1.46      2.403   
+w1-1vu                        A         S2        1     4578      0       26.0    37.0    39.0    41.0    38.15     0.827   
+w1-10vu                       A         S2        10    5252      2310    223.0   318.0   330.0   342.0   43.73     0.946   
+w1-50vu                       A         S2        50    5176      2638    1132.0  1610.0  1677.0  1721.0  42.93     0.924   
+q-time-1h-10vu-s2             A         S2        10    14574     6300    59.0    70.0    73.0    79.0    121.38    0.000   
+q-time-24h-10vu-s2            A         S2        10    9999      4264    86.0    105.0   110.0   121.0   83.28     0.000   
+q-time-7d-10vu-s2             A         S2        10    9229      3994    94.0    112.0   118.0   127.0   76.86     0.000   
+q-id-10vu-s2                  A         S2        10    4954      2127    175.0   222.0   236.0   255.0   41.22     0.000   
+m1-1tenant                    A         S1        50    0         33733   0.0     0.0     0.0     0.0     0.00      0.000   
+m2-5tenants                   A         S1        50    23876     15924   381.0   422.0   434.0   452.0   79.49     0.000   
+m3-50tenants                  A         S1        50    27772     14460   356.0   409.0   423.0   454.0   92.45     0.000   
+mixed-10vu                    A         S1        10    139833    137540  20.0    80.0    115.0   258.0   155.36    3.261   
+mixed-50vu                    A         S1        50    23261     23921   54.0    127.0   167.0   370.0   25.42     0.519   
+mixed-100vu                   A         S1        100   21398     29062   84.0    188.0   237.0   368.0   23.59     0.517   
+w2-1vu                        B         S1        1     12811     0       8.0     16.0    17.0    25.0    106.75    17.725  
+w2-10vu                       B         S1        10    16116     6883    48.0    61.0    67.0    100.0   134.26    21.599  
+w2-50vu                       B         S1        50    17815     5681    236.0   271.0   288.0   661.0   148.23    24.219  
+q-time-1h-10vu                B         S1        10    10278     4416    84.0    108.0   118.0   148.0   85.58     0.000   
+q-time-24h-10vu               B         S1        10    10347     4275    85.0    106.0   114.0   138.0   86.18     0.000   
+q-time-7d-10vu                B         S1        10    7834      3391    111.0   145.0   160.0   201.0   65.25     0.000   
+q-id-10vu                     B         S1        10    4704      2120    185.0   256.0   277.0   332.0   39.13     0.000   
+q-full-10vu                   B         S1        10    53        97      10775.0 16493.0 18596.0 20617.0 0.42      0.698   
+w1-1vu                        B         S2        1     0         12265   0.0     0.0     0.0     0.0     0.00      0.000   
+w1-10vu                       B         S2        10    2924      6772    351.0   549.0   697.0   860.0   24.33     0.525   
+w1-50vu                       B         S2        50    3091      10023   1676.0  2366.0  2471.0  2556.0  25.59     0.552   
+q-time-1h-10vu-s2             B         S2        10    5911      13582   65.0    81.0    86.0    96.0    49.23     0.000   
+q-time-24h-10vu-s2            B         S2        10    5746      13998   65.0    81.0    86.0    94.0    47.86     0.000   
+q-time-7d-10vu-s2             B         S2        10    4230      9568    96.0    129.0   140.0   158.0   35.23     0.000   
+q-id-10vu-s2                  B         S2        10    3153      7519    125.0   180.0   199.0   232.0   26.25     0.000   
+m1-1tenant                    B         S1        50    0         73505   0.0     0.0     0.0     0.0     0.00      0.000   
+m2-5tenants                   B         S1        50    13905     20888   439.0   489.0   505.0   532.0   46.29     0.000   
+m3-50tenants                  B         S1        50    17160     21870   388.0   432.0   446.0   475.0   57.12     0.000   
+m4-50tenants-b                B         S1        50    18142     23165   368.0   422.0   434.0   462.0   60.41     0.000   
+mixed-10vu                    B         S1        10    28958     68320   78.0    154.0   517.0   1785.0  32.17     0.558   
+mixed-50vu                    B         S1        50    39364     52358   407.0   522.0   569.0   8922.0  43.71     0.821   
+mixed-100vu                   B         S1        100   38307     63956   691.0   835.0   918.0   16994.0 42.52     0.732   
+══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Results written to results/results-combined-2026-04-07T03-37-02.csv
