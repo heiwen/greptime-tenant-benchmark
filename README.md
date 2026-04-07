@@ -253,6 +253,24 @@ Prometheus metrics (scraped every 5 s during memory-pressure runs unless `--skip
 
 ---
 
+## Collecting logs
+
+Run the benchmark via `tee` so stdout and stderr are captured to a file while the run is in progress:
+
+```bash
+bun run bench 2>&1 | tee bench-$(date +%Y%m%dT%H%M%S).log
+```
+
+After the benchmark, dump all container logs:
+
+```bash
+for svc in metasrv datanode0 datanode1 datanode2 frontend0 frontend1; do
+  docker compose logs --no-color $svc > logs-$svc.txt
+done
+```
+
+---
+
 ## Teardown
 
 On the instance — stop the cluster:
@@ -294,7 +312,7 @@ Note: the public IP changes after a stop/start. Re-run the `describe-instances` 
 | Variable | Default | Description |
 |---|---|---|
 | `GREPTIMEDB_URL` | `postgres://greptime@localhost:4003/public` | Connection string (points at HAProxy) |
-| `GREPTIMEDB_PROMETHEUS_URL` | `http://localhost:4000/metrics` | Prometheus scrape endpoint |
+| `GREPTIMEDB_PROMETHEUS_URLS` | `http://localhost:5000/metrics,...` | Comma-separated datanode metrics endpoints |
 | `TENANT_COUNT` | `100` | |
 | `SPANS_PER_TENANT` | `500000` | |
 | `ITEMS_PER_TENANT` | `1500000` | |
