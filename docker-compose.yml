@@ -47,6 +47,8 @@ services:
       - --rpc-server-addr=datanode0:3001
       - --metasrv-addrs=metasrv:3002
       - --http-addr=0.0.0.0:5000
+    ports:
+      - "5000:5000"   # metrics
     volumes:
       - datanode0-data:/greptimedb_data
     depends_on:
@@ -64,6 +66,8 @@ services:
       - --rpc-server-addr=datanode1:3001
       - --metasrv-addrs=metasrv:3002
       - --http-addr=0.0.0.0:5000
+    ports:
+      - "5001:5000"   # metrics
     volumes:
       - datanode1-data:/greptimedb_data
     depends_on:
@@ -81,6 +85,8 @@ services:
       - --rpc-server-addr=datanode2:3001
       - --metasrv-addrs=metasrv:3002
       - --http-addr=0.0.0.0:5000
+    ports:
+      - "5002:5000"   # metrics
     volumes:
       - datanode2-data:/greptimedb_data
     depends_on:

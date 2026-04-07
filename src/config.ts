@@ -1,6 +1,9 @@
 export const config = {
   dbUrl: process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
-  prometheusUrl: process.env.GREPTIMEDB_PROMETHEUS_URL ?? 'http://localhost:4000/metrics',
+  // Comma-separated list of datanode HTTP metrics endpoints.
+  // Datanodes expose mito storage metrics (cache, memtable, open-files).
+  // The frontend (:4000) only exposes catalog/routing metrics, NOT mito metrics.
+  prometheusUrls: (process.env.GREPTIMEDB_PROMETHEUS_URLS ?? 'http://localhost:5000/metrics,http://localhost:5001/metrics,http://localhost:5002/metrics').split(',').map(u => u.trim()),
   tenantCount: parseInt(process.env.TENANT_COUNT ?? '100', 10),
   spansPerTenant: parseInt(process.env.SPANS_PER_TENANT ?? '500000', 10),
   itemsPerTenant: parseInt(process.env.ITEMS_PER_TENANT ?? '1000000', 10),

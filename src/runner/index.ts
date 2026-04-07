@@ -122,7 +122,7 @@ async function main() {
       // Start Prometheus scraping
       let scraper: ReturnType<typeof startScraping> | null = null;
       if (!skipScrape) {
-        scraper = startScraping(config.prometheusUrl, 5000);
+        scraper = startScraping(config.prometheusUrls, 5000);
       }
 
       // Warm-up phase (60s, results discarded) — skip with --no-warmup for local runs

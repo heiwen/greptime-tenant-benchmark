@@ -14,6 +14,7 @@ export function qIdS1(_page: number): WorkloadFn {
 
     if (!cursor) {
       // First call: no cursor, get latest page
+      const now = new Date();
       if (strategy === 'b') {
         rows = await sql`
           SELECT trace_id, span_id, "timestamp", duration_nano,
@@ -21,6 +22,7 @@ export function qIdS1(_page: number): WorkloadFn {
                  gen_ai_input_tokens, gen_ai_output_tokens
           FROM spans
           WHERE tenant_id = ${tenantId}
+            AND "timestamp" <= ${now}
           ORDER BY "timestamp" DESC, span_id DESC
           LIMIT 50
         `;
@@ -31,6 +33,7 @@ export function qIdS1(_page: number): WorkloadFn {
                  gen_ai_system, gen_ai_request_model,
                  gen_ai_input_tokens, gen_ai_output_tokens
           FROM ${sql(table)}
+          WHERE "timestamp" <= ${now}
           ORDER BY "timestamp" DESC, span_id DESC
           LIMIT 50
         `;
