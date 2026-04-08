@@ -1,5 +1,6 @@
 import { sql, tenantTable } from '../db.js';
 import { config } from '../config.js';
+import { makeProgressLogger } from './progress.js';
 import { randomText, randomJson } from './text.js';
 import type { Strategy, SpanTier } from '../types.js';
 
@@ -130,71 +131,99 @@ async function countSpans(strategy: Strategy, tableName: string, tenantId: strin
   return Number(result[0].c);
 }
 
+async function seedSpansForTenant(
+  strategy: Strategy,
+  tenantId: string,
+  totalPerTenant: number,
+  timeRanges: { historicalStart: number; historicalEnd: number; recentStart: number; recentEnd: number; freshStart: number; freshEnd: number },
+): Promise<void> {
+  const tableName = strategy === 'a' ? tenantTable('spans', tenantId) : 'spans';
+  const batchSize = config.spanBatchSize;
+
+  const existing = await countSpans(strategy, tableName, tenantId);
+  if (existing >= totalPerTenant) {
+    return;
+  }
+
+  const toInsert = totalPerTenant - existing;
+  const { historicalStart, historicalEnd, recentStart, recentEnd, freshStart, freshEnd } = timeRanges;
+
+  const segments = [
+    { count: Math.floor(toInsert * 0.75), start: historicalStart, end: historicalEnd },
+    { count: Math.floor(toInsert * 0.15), start: recentStart,     end: recentEnd },
+    { count: toInsert - Math.floor(toInsert * 0.75) - Math.floor(toInsert * 0.15), start: freshStart, end: freshEnd },
+  ];
+
+  let totalInserted = existing;
+
+  for (const seg of segments) {
+    let segInserted = 0;
+    while (segInserted < seg.count) {
+      const thisBatch = Math.min(batchSize, seg.count - segInserted);
+      const rows: Record<string, unknown>[] = [];
+      for (let i = 0; i < thisBatch; i++) {
+        rows.push(generateSpanRow(strategy === 'b' ? tenantId : null, randomTimestampInRange(seg.start, seg.end)));
+      }
+      await retryInsert(() => sql`INSERT INTO ${sql(tableName)} ${sql(rows)}`);
+      segInserted += thisBatch;
+      totalInserted += thisBatch;
+    }
+  }
+}
+
 export async function seedSpans(
   strategy: Strategy,
   tenants: string[],
   totalPerTenant: number,
+  concurrency = config.seedConcurrency,
 ): Promise<void> {
   const now = Date.now();
   const MS_PER_DAY = 86_400_000;
   const MS_PER_MONTH = 30 * MS_PER_DAY;
 
-  const historicalStart = now - 18 * MS_PER_MONTH;
-  const historicalEnd   = now - 4 * MS_PER_MONTH;
-  const recentStart     = now - 3 * MS_PER_MONTH;
-  const recentEnd       = now - MS_PER_MONTH;
-  const freshStart      = now - 7 * MS_PER_DAY;
-  const freshEnd        = now;
+  const timeRanges = {
+    historicalStart: now - 18 * MS_PER_MONTH,
+    historicalEnd:   now - 4  * MS_PER_MONTH,
+    recentStart:     now - 3  * MS_PER_MONTH,
+    recentEnd:       now - 1  * MS_PER_MONTH,
+    freshStart:      now - 7  * MS_PER_DAY,
+    freshEnd:        now,
+  };
 
-  const batchSize = config.spanBatchSize;
+  let completed = 0;
+  let skipped = 0;
+  let next = 0;
+  let inFlight = 0;
+  const logProgress = makeProgressLogger('spans', tenants.length);
 
-  for (let t = 0; t < tenants.length; t++) {
-    const tenantId = tenants[t];
-    const tableName = strategy === 'a'
-      ? tenantTable('spans', tenantId)
-      : 'spans';
+  console.log(`[spans] Seeding ${tenants.length} tenants (${concurrency} concurrent)...`);
 
-    const existing = await countSpans(strategy, tableName, tenantId);
-    if (existing >= totalPerTenant) {
-      console.log(`[spans] Tenant ${t + 1}/${tenants.length}: ${tenantId} → already complete (${existing} rows), skipping`);
-      continue;
-    }
+  await new Promise<void>((resolve, reject) => {
+    function drain() {
+      while (inFlight < concurrency && next < tenants.length) {
+        const t = next++;
+        const tenantId = tenants[t];
+        inFlight++;
 
-    const toInsert = totalPerTenant - existing;
-    console.log(`[spans] Tenant ${t + 1}/${tenants.length}: ${tenantId} → ${tableName} (inserting ${toInsert})`);
-
-    const segments = [
-      { count: Math.floor(toInsert * 0.75), start: historicalStart, end: historicalEnd },
-      { count: Math.floor(toInsert * 0.15), start: recentStart,     end: recentEnd },
-      { count: toInsert - Math.floor(toInsert * 0.75) - Math.floor(toInsert * 0.15), start: freshStart, end: freshEnd },
-    ];
-
-    let totalInserted = existing;
-
-    for (const seg of segments) {
-      let segInserted = 0;
-
-      while (segInserted < seg.count) {
-        const thisBatch = Math.min(batchSize, seg.count - segInserted);
-        const rows: Record<string, unknown>[] = [];
-
-        for (let i = 0; i < thisBatch; i++) {
-          const tsMs = randomTimestampInRange(seg.start, seg.end);
-          const row = generateSpanRow(strategy === 'b' ? tenantId : null, tsMs);
-          rows.push(row);
-        }
-
-        await retryInsert(() => sql`INSERT INTO ${sql(tableName)} ${sql(rows)}`);
-
-        segInserted += thisBatch;
-        totalInserted += thisBatch;
-
-        if (totalInserted % 10_000 === 0) {
-          console.log(`  [spans] ${tenantId}: ${totalInserted}/${totalPerTenant} rows inserted`);
-        }
+        seedSpansForTenant(strategy, tenantId, totalPerTenant, timeRanges)
+          .then(() => {
+            completed++;
+            logProgress(completed);
+          })
+          .catch(reject)
+          .finally(() => {
+            inFlight--;
+            if (next === tenants.length && inFlight === 0) {
+              resolve();
+            } else {
+              drain();
+            }
+          });
       }
     }
+    drain();
+    if (tenants.length === 0) resolve();
+  });
 
-    console.log(`  [spans] ${tenantId}: complete (${totalInserted} rows)`);
-  }
+  console.log(`[spans] Complete: ${completed} seeded, ${skipped} already done`);
 }

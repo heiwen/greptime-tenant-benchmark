@@ -59,38 +59,60 @@ async function main() {
     }
 
     if (strategy === 'a') {
-      console.log(`Creating Strategy A tables for ${tenants.length} tenants...`);
+      const CONCURRENCY = 20;
+      console.log(`Creating Strategy A tables for ${tenants.length} tenants (${CONCURRENCY} concurrent)...`);
       let created = 0;
       let skipped = 0;
+      let inFlight = 0;
+      let next = 0;
 
-      for (const tenantId of tenants) {
-        if (dropFlag) {
-          const spanTable = `spans_${tenantId.replace(/-/g, '')}`;
-          const itemTable = `conversation_items_${tenantId.replace(/-/g, '')}`;
-          await sql.unsafe(`DROP TABLE IF EXISTS ${spanTable}`);
-          await sql.unsafe(`DROP TABLE IF EXISTS ${itemTable}`);
-        }
+      await new Promise<void>((resolve, reject) => {
+        function drain() {
+          while (inFlight < CONCURRENCY && next < tenants.length) {
+            const tenantId = tenants[next++];
+            inFlight++;
 
-        try {
-          await sql.unsafe(spansTableA(tenantId));
-          created++;
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.log(`  Skipped spans for ${tenantId}: ${msg}`);
-          skipped++;
-        }
+            (async () => {
+              if (dropFlag) {
+                const spanTable = `spans_${tenantId.replace(/-/g, '')}`;
+                const itemTable = `conversation_items_${tenantId.replace(/-/g, '')}`;
+                await sql.unsafe(`DROP TABLE IF EXISTS ${spanTable}`);
+                await sql.unsafe(`DROP TABLE IF EXISTS ${itemTable}`);
+              }
 
-        try {
-          await sql.unsafe(conversationItemsTableA(tenantId));
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.log(`  Skipped conversation_items for ${tenantId}: ${msg}`);
-        }
+              try {
+                await sql.unsafe(spansTableA(tenantId));
+                created++;
+              } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                console.log(`  Skipped spans for ${tenantId}: ${msg}`);
+                skipped++;
+              }
 
-        if ((created + skipped) % 10 === 0) {
-          console.log(`  Progress: ${created + skipped}/${tenants.length} tenants processed`);
+              try {
+                await sql.unsafe(conversationItemsTableA(tenantId));
+              } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                console.log(`  Skipped conversation_items for ${tenantId}: ${msg}`);
+              }
+
+              const done = created + skipped;
+              if (done % 100 === 0 || done === tenants.length) {
+                console.log(`  Progress: ${done}/${tenants.length} tenants`);
+              }
+            })().then(() => {
+              inFlight--;
+              if (next === tenants.length && inFlight === 0) {
+                resolve();
+              } else {
+                drain();
+              }
+            }).catch(reject);
+          }
         }
-      }
+        drain();
+        if (tenants.length === 0) resolve();
+      });
 
       console.log(`Strategy A: created ${created} tenant table sets, skipped ${skipped}`);
     }

@@ -43,18 +43,26 @@ async function main() {
     await saveTenants(tenants);
   }
 
+  const spansPerTenant = Math.max(1, Math.round(config.spansPerTenant * config.sparseMultiplier));
+  const itemsPerTenant = Math.max(1, Math.round(config.itemsPerTenant * config.sparseMultiplier));
+  const conversationsPerTenant = Math.max(1, Math.round(config.conversationsPerTenant * config.sparseMultiplier));
+
+  if (config.sparseMultiplier !== 1.0) {
+    console.log(`Sparse mode: ${config.sparseMultiplier}× — ${spansPerTenant} spans/tenant, ${itemsPerTenant} items/tenant`);
+  }
+
   const startTime = Date.now();
 
   if (runS1) {
     console.log(`\nSeeding spans (S1) for strategy ${strategy.toUpperCase()}...`);
-    console.log(`  Tenants: ${tenants.length}, spans per tenant: ${config.spansPerTenant}`);
-    await seedSpans(strategy, tenants, config.spansPerTenant);
+    console.log(`  Tenants: ${tenants.length}, spans per tenant: ${spansPerTenant}, concurrency: ${config.seedConcurrency}`);
+    await seedSpans(strategy, tenants, spansPerTenant);
   }
 
   if (runS2) {
     console.log(`\nSeeding conversation items (S2) for strategy ${strategy.toUpperCase()}...`);
-    console.log(`  Tenants: ${tenants.length}, items per tenant: ${config.itemsPerTenant}`);
-    await seedConversationItems(strategy, tenants, config.itemsPerTenant, config.conversationsPerTenant);
+    console.log(`  Tenants: ${tenants.length}, items per tenant: ${itemsPerTenant}, concurrency: ${config.seedConcurrency}`);
+    await seedConversationItems(strategy, tenants, itemsPerTenant, conversationsPerTenant);
   }
 
   const elapsedSecs = (Date.now() - startTime) / 1000;
@@ -66,14 +74,14 @@ async function main() {
       (sum, c) => sum + c.share * c.totalRowBytes,
       0,
     );
-    estimatedBytes += tenants.length * config.spansPerTenant * avgSpanBytes;
+    estimatedBytes += tenants.length * spansPerTenant * avgSpanBytes;
   }
   if (runS2) {
     const avgItemBytes = Object.values(ITEM_TYPE_CONFIG).reduce(
       (sum, c) => sum + c.weight * c.dataBytes,
       0,
     ) + 200; // overhead for id, conversation_id, created_at, type
-    estimatedBytes += tenants.length * config.itemsPerTenant * avgItemBytes;
+    estimatedBytes += tenants.length * itemsPerTenant * avgItemBytes;
   }
 
   const estimatedGb = (estimatedBytes / 1e9).toFixed(2);

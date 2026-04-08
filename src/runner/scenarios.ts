@@ -4,6 +4,7 @@ import { qIdS1, qIdS2 } from '../workloads/q-id.js';
 import { qFullS1 } from '../workloads/q-full.js';
 import { w1 } from '../workloads/w1.js';
 import { w2 } from '../workloads/w2.js';
+import { config } from '../config.js';
 
 export interface ScenarioRun {
   name: string;
@@ -178,42 +179,55 @@ export const SCENARIOS: ScenarioRun[] = [
   },
 
   // ── Memory pressure scenarios ─────────────────────────────────────────────
-  {
-    name: 'm1-1tenant',
-    scenario: 's1',
-    workloadFn: qTimeS1(24),
-    concurrency: 50,
-    durationSecs: 300,
-    tenantDiversity: 1,
-    description: 'Memory pressure: 50 VUs hammering 1 tenant, 5min',
-  },
-  {
-    name: 'm2-5tenants',
-    scenario: 's1',
-    workloadFn: qTimeS1(24),
-    concurrency: 50,
-    durationSecs: 300,
-    tenantDiversity: 5,
-    description: 'Memory pressure: 50 VUs across 5 tenants, 5min',
-  },
-  {
-    name: 'm3-50tenants',
-    scenario: 's1',
-    workloadFn: qTimeS1(24),
-    concurrency: 50,
-    durationSecs: 300,
-    tenantDiversity: 50,
-    description: 'Memory pressure: 50 VUs across 50 tenants, 5min',
-  },
-  {
-    name: 'm4-50tenants-b',
-    scenario: 's1',
-    workloadFn: qTimeS1(24),
-    concurrency: 50,
-    durationSecs: 300,
-    tenantDiversity: 50,
-    description: 'Memory pressure Strategy B: 50 VUs across 50 tenants, 5min',
-  },
+  // Tenant diversity scales with TENANT_COUNT so these scenarios remain
+  // meaningful at 100, 1k, or 10k tenants:
+  //   M1: 1 tenant       (baseline, no cache pressure)
+  //   M2: 5% of tenants  (mild pressure)
+  //   M3: 50% of tenants (full pressure — Strategy A critical case)
+  //   M4: 50% of tenants, Strategy B only (control for M3)
+  ...(() => {
+    const n = config.tenantCount;
+    const m2diversity = Math.max(2, Math.round(n * 0.05));
+    const m3diversity = Math.max(10, Math.round(n * 0.50));
+    return [
+      {
+        name: 'm1-1tenant',
+        scenario: 's1' as Scenario,
+        workloadFn: qTimeS1(24),
+        concurrency: 50,
+        durationSecs: 300,
+        tenantDiversity: 1,
+        description: 'Memory pressure: 50 VUs hammering 1 tenant, 5min',
+      },
+      {
+        name: 'm2-5pct',
+        scenario: 's1' as Scenario,
+        workloadFn: qTimeS1(24),
+        concurrency: 50,
+        durationSecs: 300,
+        tenantDiversity: m2diversity,
+        description: `Memory pressure: 50 VUs across ${m2diversity} tenants (5%), 5min`,
+      },
+      {
+        name: 'm3-50pct',
+        scenario: 's1' as Scenario,
+        workloadFn: qTimeS1(24),
+        concurrency: 50,
+        durationSecs: 300,
+        tenantDiversity: m3diversity,
+        description: `Memory pressure: 50 VUs across ${m3diversity} tenants (50%), 5min`,
+      },
+      {
+        name: 'm4-50pct-b',
+        scenario: 's1' as Scenario,
+        workloadFn: qTimeS1(24),
+        concurrency: 50,
+        durationSecs: 300,
+        tenantDiversity: m3diversity,
+        description: `Memory pressure Strategy B: 50 VUs across ${m3diversity} tenants (50%), 5min`,
+      },
+    ];
+  })(),
 
   // ── Mixed workload scenarios ───────────────────────────────────────────────
   {

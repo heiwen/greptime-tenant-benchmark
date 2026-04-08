@@ -118,8 +118,8 @@ async function main() {
 
   for (const strategy of strategies) {
     for (const scenario of selectedScenarios) {
-      // m4-50tenants-b is Strategy B only
-      if (scenario.name === 'm4-50tenants-b' && strategy !== 'b') {
+      // m4 is Strategy B only
+      if (scenario.name === 'm4-50pct-b' && strategy !== 'b') {
         console.log(`Skipping ${scenario.name} for strategy ${strategy.toUpperCase()} (B only)`);
         continue;
       }

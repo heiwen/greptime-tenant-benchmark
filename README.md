@@ -25,7 +25,18 @@ The docker-compose runs a full GreptimeDB cluster on a single host alongside the
 
 EBS gp3 is intentionally used rather than NVMe instance storage. In production GreptimeDB stores SSTs in object storage (S3), so EBS latency characteristics are a closer approximation of real-world conditions than local NVMe.
 
-**EBS volume**: 1500 GB gp3, 3000 IOPS / 125 MB/s baseline (default). Increase IOPS/throughput if seeding bottlenecks on disk write.
+**EBS volume** — size depends on which tenant-scale runs you intend to execute:
+
+| Run | Tenants | `SPARSE_MULTIPLIER` | Compressed data | Volume needed |
+|---|---|---|---|---|
+| 100 tenants (baseline) | 100 | 1.0 | ~1.5 TB | 1500 GB |
+| 1k tenants, full density | 1,000 | 1.0 | ~15 TB | 16000 GB |
+| 10k tenants, sparse (0.2×) | 10,000 | 0.2 | ~3 TB | 3500 GB |
+| 1k + 10k back-to-back | — | — | ~19.5 TB | 21000 GB |
+
+Baseline: `1500 GB gp3`. For 1k or 10k runs provision accordingly before launch — EBS volumes can be extended live but only increased, not shrunk.
+
+Increase provisioned IOPS/throughput (`--iops`, `--throughput`) if seeding bottlenecks on disk write; gp3 baseline (3000 IOPS / 125 MB/s) is usually sufficient for the 100-tenant run.
 
 Minimum viable (smoke runs only): `r6i.2xlarge` — 8 vCPU, 64 GiB, 200 GB gp3.
 
@@ -152,7 +163,7 @@ bun run schema:create -- --strategy a
 
 ### Step 3 — Seed data
 
-Full scale (~1.7 TB uncompressed, expect 3–6 hours depending on instance):
+Full scale (~420 GB compressed, expect 3–6 hours with default 50-tenant concurrency):
 
 ```bash
 tmux new -s seed
@@ -173,21 +184,37 @@ Scale is controlled by env vars (defaults shown):
 |---|---|---|
 | `TENANT_COUNT` | `100` | Number of tenants |
 | `SPANS_PER_TENANT` | `500000` | Spans per tenant |
-| `ITEMS_PER_TENANT` | `1500000` | Conversation items per tenant |
+| `ITEMS_PER_TENANT` | `1000000` | Conversation items per tenant |
 | `CONVERSATIONS_PER_TENANT` | `50000` | Distinct conversation IDs per tenant |
 | `SEED_BATCH_SIZE` | `500` | Rows per INSERT for conversation items |
 | `SPAN_BATCH_SIZE` | `100` | Spans per INSERT batch |
+| `SEED_CONCURRENCY` | `50` | Tenants seeded in parallel (keep ≤ db pool size of 100) |
+| `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant down proportionally for large tenant counts (e.g. `0.2` gives 100k spans/tenant) |
 
 For a **smoke run** to verify everything works before committing to full seeding:
 
 ```bash
 TENANT_COUNT=10 \
 SPANS_PER_TENANT=5000 \
-ITEMS_PER_TENANT=15000 \
+ITEMS_PER_TENANT=10000 \
 CONVERSATIONS_PER_TENANT=500 \
 bun run seed -- --strategy b
 
 # then strategy a with the same vars
+```
+
+For the **1k-tenant run** (same per-tenant density, ~4 TB compressed):
+
+```bash
+TENANT_COUNT=1000 bun run seed -- --strategy b
+TENANT_COUNT=1000 bun run seed -- --strategy a
+```
+
+For the **10k-tenant run** (reduced density so Q-time 1h returns ~50 rows, ~3.5 TB compressed):
+
+```bash
+TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy b
+TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy a
 ```
 
 ### Step 4 — Run the benchmark
@@ -232,9 +259,9 @@ bun run bench -- --no-warmup --skip-scrape
 | `q-time-7d-10vu-s2` | Conversation time-range, 7 d | 10 | 2 min |
 | `q-id-10vu-s2` | Conversation cursor pagination | 10 | 2 min |
 | `m1-1tenant` | Memory pressure, 1 tenant | 50 | 5 min |
-| `m2-5tenants` | Memory pressure, 5 tenants | 50 | 5 min |
-| `m3-50tenants` | Memory pressure, 50 tenants | 50 | 5 min |
-| `m4-50tenants-b` | Memory pressure, 50 tenants (B) | 50 | 5 min |
+| `m2-5pct` | Memory pressure, 5% of tenants | 50 | 5 min |
+| `m3-50pct` | Memory pressure, 50% of tenants | 50 | 5 min |
+| `m4-50pct-b` | Memory pressure, 50% of tenants (B only) | 50 | 5 min |
 | `mixed-10vu` | Mixed read/write | 10 | 15 min |
 | `mixed-50vu` | Mixed read/write | 50 | 15 min |
 | `mixed-100vu` | Mixed read/write | 100 | 15 min |
@@ -312,9 +339,11 @@ Note: the public IP changes after a stop/start. Re-run the `describe-instances` 
 | Variable | Default | Description |
 |---|---|---|
 | `GREPTIMEDB_URL` | `postgres://greptime@localhost:4003/public` | Connection string (points at HAProxy) |
-| `GREPTIMEDB_PROMETHEUS_URLS` | `http://localhost:5000/metrics,...` | Comma-separated datanode metrics endpoints |
+| `GREPTIMEDB_PROMETHEUS_URLS` | `http://localhost:5000/metrics,...` | Comma-separated datanode `/metrics` endpoints. **Must be set to the server's IP if running the benchmark client from a different machine** (port 5000 on Mac is occupied by AirPlay). |
 | `TENANT_COUNT` | `100` | |
 | `SPANS_PER_TENANT` | `500000` | |
-| `ITEMS_PER_TENANT` | `1500000` | |
+| `ITEMS_PER_TENANT` | `1000000` | |
 | `CONVERSATIONS_PER_TENANT` | `50000` | |
+| `SEED_CONCURRENCY` | `50` | Tenants seeded in parallel |
+| `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant proportionally |
 | `RESULTS_DIR` | `./results` | Output directory for CSVs |

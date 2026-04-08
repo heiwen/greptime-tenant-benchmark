@@ -81,11 +81,13 @@ services:
     ports:
       - "4000:4000"
       - "5433:4003"
+      - "4002:4002"
     command:
       - frontend
       - start
       - --metasrv-addrs=metasrv:3002
       - --postgres-addr=0.0.0.0:4003
+      - --mysql-addr=0.0.0.0:4002
       - --http-addr=0.0.0.0:4000
     depends_on:
       - datanode0
