@@ -32,7 +32,7 @@ export function w1(): WorkloadFn {
       const type = pickItemType();
       const dataBytes = ITEM_TYPE_CONFIG[type].dataBytes;
       const data = randomJson(dataBytes);
-      const createdAt = new Date(baseMs + i); // 1ms offset per item to ensure unique TIME INDEX
+      const createdAt = new Date(baseMs + i).toISOString(); // 1ms offset per item to ensure unique TIME INDEX
 
       totalBytes += dataBytes;
 
