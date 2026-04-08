@@ -154,12 +154,20 @@ Expect: 3 DATANODEs, 2 FRONTENDs, 1 METASRV. Each datanode should show `leader_r
 
 ### Step 2 — Create schemas
 
-Strategy B must be created first — it generates `results/tenants.json` (the tenant UUIDs used by both strategies).
+`schema:create --strategy b` generates `results/tenants.json` (if not already present) and creates the 2 shared tables. Strategy A reads that file to create its per-tenant tables.
 
 ```bash
-bun run schema:create -- --strategy b
-bun run schema:create -- --strategy a
+TENANT_COUNT=1000 bun run schema:create -- --strategy b
+TENANT_COUNT=1000 bun run schema:create -- --strategy a
 ```
+
+If `results/tenants.json` already exists from a previous run with a different tenant count, delete it first:
+
+```bash
+rm results/tenants.json
+```
+
+For the baseline 100-tenant run omit the env var (default is 100).
 
 ### Step 3 — Seed data
 

@@ -262,20 +262,18 @@ patterns:
 ### Q-time — Recent window scan
 
 ```sql
--- S1 spans (metadata projection only)
-SELECT trace_id, span_id, timestamp, duration_nano,
-       "span_attributes.gen_ai.system",
-       "span_attributes.gen_ai.request.model",
-       "span_attributes.gen_ai.usage.input_tokens",
-       "span_attributes.gen_ai.usage.output_tokens"
+-- S1 spans (metadata projection only; gen_ai fields are flat columns, not dot-path)
+SELECT trace_id, span_id, "timestamp", duration_nano,
+       gen_ai_system, gen_ai_request_model,
+       gen_ai_input_tokens, gen_ai_output_tokens
 FROM spans
 WHERE tenant_id = ?                              -- omit for Strategy A
-  AND timestamp > NOW() - INTERVAL '1 hour'
-ORDER BY timestamp DESC
+  AND "timestamp" > NOW() - INTERVAL '1 hour'
+ORDER BY "timestamp" DESC
 LIMIT 50;
 
--- S2 conversation items
-SELECT id, conversation_id, created_at, type, data
+-- S2 conversation items (data column excluded — projection covers identity + type only)
+SELECT "id", conversation_id, created_at, "type"
 FROM conversation_items
 WHERE tenant_id = ?                              -- omit for Strategy A
   AND conversation_id = $conversation_id
@@ -289,33 +287,41 @@ Mix: 60% / 30% / 10% — weighted toward the most recent window.
 
 ### Q-id — Cursor-based pagination
 
+Cursor state is maintained in-memory per tenant (module-level Map). Each call
+advances to the next page; when results are exhausted the cursor resets.
+
 ```sql
--- S1 spans
-SELECT trace_id, span_id, timestamp, duration_nano,
-       "span_attributes.gen_ai.system",
-       "span_attributes.gen_ai.request.model",
-       "span_attributes.gen_ai.usage.input_tokens",
-       "span_attributes.gen_ai.usage.output_tokens"
+-- S1 spans — first call (no cursor)
+SELECT trace_id, span_id, "timestamp", duration_nano,
+       gen_ai_system, gen_ai_request_model,
+       gen_ai_input_tokens, gen_ai_output_tokens
 FROM spans
 WHERE tenant_id = ?                              -- omit for Strategy A
-  AND (timestamp < $cursor_ts
-       OR (timestamp = $cursor_ts AND span_id < $cursor_id))
-ORDER BY timestamp DESC, span_id DESC
+  AND "timestamp" <= $now
+ORDER BY "timestamp" DESC, span_id DESC
 LIMIT 50;
 
--- S2 conversation items
-SELECT id, conversation_id, created_at, type, data
+-- S1 spans — subsequent calls (cursor set)
+SELECT trace_id, span_id, "timestamp", duration_nano,
+       gen_ai_system, gen_ai_request_model,
+       gen_ai_input_tokens, gen_ai_output_tokens
+FROM spans
+WHERE tenant_id = ?                              -- omit for Strategy A
+  AND ("timestamp" < $cursor_ts
+       OR ("timestamp" = $cursor_ts AND span_id < $cursor_id))
+ORDER BY "timestamp" DESC, span_id DESC
+LIMIT 50;
+
+-- S2 conversation items — global pagination across the tenant's items (no conversation_id filter)
+SELECT "id", conversation_id, created_at, "type"
 FROM conversation_items
 WHERE tenant_id = ?                              -- omit for Strategy A
-  AND conversation_id = $conversation_id
+  -- first call: no filter; subsequent calls use cursor
   AND (created_at < $cursor_ts
-       OR (created_at = $cursor_ts AND id < $cursor_id))
-ORDER BY created_at DESC, id DESC
+       OR (created_at = $cursor_ts AND "id" < $cursor_id))
+ORDER BY created_at DESC, "id" DESC
 LIMIT 50;
 ```
-
-Cursor depth variants: page 1 (no cursor), page 5, page 20.
-Mix: 70% / 20% / 10%.
 
 ### Q-full — Full row fetch including message payloads (S1 only)
 
@@ -327,8 +333,8 @@ projection.
 SELECT *
 FROM spans
 WHERE tenant_id = ?                              -- omit for Strategy A
-  AND timestamp > NOW() - INTERVAL '1 hour'
-ORDER BY timestamp DESC
+  AND "timestamp" > NOW() - INTERVAL '1 hour'
+ORDER BY "timestamp" DESC
 LIMIT 50;
 ```
 
@@ -349,9 +355,9 @@ All other parameters — concurrency, query type, data volume — are identical.
 | Scenario | VUs | Distinct tenants queried | Purpose |
 |---|---|---|---|
 | M1 | 50 | 1 | Baseline — no cache pressure |
-| M2 | 50 | 5 | Mild pressure |
-| M3 | 50 | 50 | Full pressure — each VU hits a different table (Strategy A critical case) |
-| M4 | 50 | 50 | Same as M3 but Strategy B |
+| M2 | 50 | 5% of TENANT_COUNT | Mild pressure |
+| M3 | 50 | 50% of TENANT_COUNT | Full pressure — each VU hits a different table (Strategy A critical case) |
+| M4 | 50 | 50% of TENANT_COUNT | Same as M3 but Strategy B only |
 
 Query: Q-time with 24 h window (medium working set, representative of a dashboard).
 
@@ -454,34 +460,49 @@ is viable at this scale. If it drops below ~50%, the latency penalty will domina
 ## Implementation layout
 
 ```
-benchmark/
+src/
+  config.ts             -- env-var config (TENANT_COUNT, SPANS_PER_TENANT, etc.)
+  db.ts                 -- Bun.sql pool, tenantSuffix(), tenantTable()
+  types.ts              -- shared TypeScript types
+  schema/
+    ddl.ts              -- TypeScript functions emitting CREATE TABLE DDL
+    partitions.ts       -- 16-range PARTITION ON COLUMNS clause
+    create.ts           -- schema:create entry point
+    drop.ts             -- schema:drop entry point
   seed/
-    tenants.ts          -- generate 100 tenant UUIDs with uniform first-char distribution
+    tenants.ts          -- generate tenant UUIDs with uniform first-char distribution
     spans.ts            -- generate span rows by tier distribution
     conversations.ts    -- generate conversation_items rows
+    text.ts             -- random text generation helpers
+    progress.ts         -- progress reporting
     index.ts            -- orchestrate seeding: historical first, then recent
   workloads/
-    q-time.ts           -- Q-time parameterized query
-    q-id.ts             -- Q-id cursor query
-    q-full.ts           -- Q-full (spans including message columns)
+    q-time.ts           -- Q-time parameterized query (S1 + S2)
+    q-id.ts             -- Q-id cursor query (S1 + S2)
+    q-full.ts           -- Q-full SELECT * (S1 only)
     w1.ts               -- conversation item insert
     w2.ts               -- span batch ingest
+    helpers.ts          -- shared workload helpers (tenantConversationId, etc.)
+    types.ts            -- WorkloadFn, CursorState interfaces
   runner/
-    concurrency.ts      -- VU pool, tenant selector, workload mixer
+    concurrency.ts      -- VU pool, tenant selector, workload dispatcher
     metrics.ts          -- latency histogram, throughput counter
     scrape.ts           -- Prometheus scrape loop for server-side metrics
+    scenarios.ts        -- SCENARIOS array (name, workloadFn, VUs, duration)
     index.ts            -- run matrix: scenario × strategy × concurrency level
-  schema/
-    strategy-a.sql      -- per-tenant DDL: spans_<tenant>, conversation_items_<tenant>
-    strategy-b.sql      -- shared table DDL: spans, conversation_items
-  results/              -- CSV output per run
-  BENCHMARK.md          -- this file
+results/                -- CSV output per run
+BENCHMARK.md            -- this file
 ```
 
 Connect to GreptimeDB via the PostgreSQL wire protocol using **Bun.sql** (Bun's
-built-in PostgreSQL client). Pass timestamps as native `Date` objects — Bun.sql
-serialises them correctly. Set `prepare: false` is not required with recent nightly
-builds; standard extended query protocol works.
+built-in PostgreSQL client, `new SQL(...)`). Pass timestamps as native `Date`
+objects — Bun.sql serialises them correctly.
+
+`prepare: false` is **required**. Bun.sql keys prepared statement cache on the
+null/non-null type signature of each parameter, so batches with variable-nullability
+columns accumulate a new named prepared statement per batch and exhaust GreptimeDB
+server memory (OOM). Disabling named prepared statements avoids this; parameterization
+is still preserved via the extended query protocol.
 
 ---
 
