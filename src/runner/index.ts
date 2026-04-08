@@ -3,7 +3,7 @@ import { loadTenants } from '../seed/tenants.js';
 import { sql } from '../db.js';
 import { runWorkload } from './concurrency.js';
 import { writeCsv } from './metrics.js';
-import { startScraping, writeScrapeResults } from './scrape.js';
+import { startScraping, writeScrapeResults, checkScrapeUrls } from './scrape.js';
 import { SCENARIOS } from './scenarios.js';
 import type { RunResult, Strategy } from '../types.js';
 import { existsSync } from 'fs';
@@ -79,6 +79,18 @@ async function main() {
   // Parse --output
   const outputIdx = args.indexOf('--output');
   const outputDir = outputIdx >= 0 ? args[outputIdx + 1] : config.resultsDir;
+
+  // Pre-flight Prometheus check
+  if (!skipScrape) {
+    console.log(`Checking Prometheus endpoints: ${config.prometheusUrls.join(', ')}`);
+    try {
+      const summary = await checkScrapeUrls(config.prometheusUrls);
+      console.log(`  OK: ${summary}`);
+    } catch (err) {
+      console.error(`\nError: ${err instanceof Error ? err.message : err}`);
+      process.exit(1);
+    }
+  }
 
   // Load tenants
   const tenantsFile = join(config.resultsDir, 'tenants.json');
