@@ -6,7 +6,9 @@
     "schema:create": "bun run src/schema/create.ts",
     "schema:drop": "bun run src/schema/drop.ts",
     "seed": "bun run src/seed/index.ts",
-    "bench": "bun run src/runner/index.ts"
+    "bench": "bun run src/runner/index.ts",
+    "test": "bun test tests/",
+    "test:memory": "bun run tests/memory-regression.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"
