@@ -1,7 +1,7 @@
 import type { WorkloadFn, Scenario } from '../types.js';
 import { qTimeS1, qTimeS2 } from '../workloads/q-time.js';
 import { qIdS1, qIdS2 } from '../workloads/q-id.js';
-import { qFullS1 } from '../workloads/q-full.js';
+import { qConvS2 } from '../workloads/q-conv.js';
 import { w1 } from '../workloads/w1.js';
 import { w2 } from '../workloads/w2.js';
 import { config } from '../config.js';
@@ -104,13 +104,22 @@ export const SCENARIOS: ScenarioRun[] = [
     description: 'Span cursor-pagination query, 10 VUs',
   },
   {
-    name: 'q-full-10vu',
-    scenario: 's1',
-    workloadFn: qFullS1(1),
+    name: 'q-conv-clustered-10vu',
+    scenario: 's2',
+    workloadFn: qConvS2('clustered'),
     concurrency: 10,
     durationSecs: 120,
     tenantDiversity: 10,
-    description: 'Span full SELECT * query, 10 VUs',
+    description: 'Fetch full conversation history — clustered timestamps (single-session), 10 VUs',
+  },
+  {
+    name: 'q-conv-scattered-10vu',
+    scenario: 's2',
+    workloadFn: qConvS2('scattered'),
+    concurrency: 10,
+    durationSecs: 120,
+    tenantDiversity: 10,
+    description: 'Fetch full conversation history — scattered timestamps (multi-session), 10 VUs',
   },
 
   // ── S2 workload scenarios (conversation items) ────────────────────────────

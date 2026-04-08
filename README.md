@@ -258,7 +258,6 @@ bun run bench -- --no-warmup --skip-scrape
 | `q-time-24h-10vu` | Time-range query, 24 h window | 10 | 2 min |
 | `q-time-7d-10vu` | Time-range query, 7 d window | 10 | 2 min |
 | `q-id-10vu` | Cursor pagination | 10 | 2 min |
-| `q-full-10vu` | Full SELECT * | 10 | 2 min |
 | `w1-1vu` | Conversation item write | 1 | 2 min |
 | `w1-10vu` | Conversation item write | 10 | 2 min |
 | `w1-50vu` | Conversation item write | 50 | 2 min |
@@ -266,6 +265,8 @@ bun run bench -- --no-warmup --skip-scrape
 | `q-time-24h-10vu-s2` | Conversation time-range, 24 h | 10 | 2 min |
 | `q-time-7d-10vu-s2` | Conversation time-range, 7 d | 10 | 2 min |
 | `q-id-10vu-s2` | Conversation cursor pagination | 10 | 2 min |
+| `q-conv-clustered-10vu` | Fetch full conversation history — single-session (items within ±48 h) | 10 | 2 min |
+| `q-conv-scattered-10vu` | Fetch full conversation history — multi-session (items spread across 18 months) | 10 | 2 min |
 | `m1-1tenant` | Memory pressure, 1 tenant | 50 | 5 min |
 | `m2-5pct` | Memory pressure, 5% of tenants | 50 | 5 min |
 | `m3-50pct` | Memory pressure, 50% of tenants | 50 | 5 min |
@@ -303,6 +304,57 @@ for svc in metasrv datanode0 datanode1 datanode2 frontend0 frontend1; do
   docker compose logs --no-color $svc > logs-$svc.txt
 done
 ```
+
+---
+
+## CONV_PK comparison
+
+`CONV_PK=true` adds `conversation_id` to the PRIMARY KEY of `conversation_items`, physically co-locating each conversation's items within SST files. This makes `q-conv-scattered` (multi-session conversations with items spread across 18 months) significantly faster at the cost of higher series cardinality (50k series/tenant instead of 1).
+
+The `q-conv-clustered` scenario (single-session conversations) and all Q-time S2 queries are expected to be unaffected — the time-range pruning path is unchanged.
+
+To isolate this variable, run both strategies at reduced scale (seeding takes ~10 minutes):
+
+```bash
+# Baseline — no PK
+docker compose down -v && docker compose up -d
+CONV_PK=false \
+TENANT_COUNT=10 \
+SPANS_PER_TENANT=5000 \
+ITEMS_PER_TENANT=100000 \
+CONVERSATIONS_PER_TENANT=5000 \
+bun run schema:create -- --strategy b && bun run schema:create -- --strategy a
+CONV_PK=false TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
+  bun run seed -- --strategy b
+CONV_PK=false TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
+  bun run seed -- --strategy a
+CONV_PK=false TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
+  bun run bench -- --scenario q-conv-clustered-10vu,q-conv-scattered-10vu,q-time-1h-10vu-s2,q-time-24h-10vu-s2 --no-warmup --skip-scrape
+
+# With PK — repeat on a clean cluster
+docker compose down -v && docker compose up -d
+CONV_PK=true \
+TENANT_COUNT=10 \
+SPANS_PER_TENANT=5000 \
+ITEMS_PER_TENANT=100000 \
+CONVERSATIONS_PER_TENANT=5000 \
+bun run schema:create -- --strategy b && bun run schema:create -- --strategy a
+CONV_PK=true TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
+  bun run seed -- --strategy b
+CONV_PK=true TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
+  bun run seed -- --strategy a
+CONV_PK=true TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
+  bun run bench -- --scenario q-conv-clustered-10vu,q-conv-scattered-10vu,q-time-1h-10vu-s2,q-time-24h-10vu-s2 --no-warmup --skip-scrape
+```
+
+Key metrics to compare across the two runs:
+
+| Scenario | Expected with `CONV_PK=true` |
+|---|---|
+| `q-conv-scattered` | Significantly faster (binary search within SST vs full scan) |
+| `q-conv-clustered` | Similar (BLOOM index already effective for clustered data) |
+| `q-time-1h-10vu-s2` | Similar (time-range pruning is unaffected by PK) |
+| `q-time-24h-10vu-s2` | Similar |
 
 ---
 
@@ -354,4 +406,5 @@ Note: the public IP changes after a stop/start. Re-run the `describe-instances` 
 | `CONVERSATIONS_PER_TENANT` | `50000` | |
 | `SEED_CONCURRENCY` | `50` | Tenants seeded in parallel |
 | `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant proportionally |
+| `CONV_PK` | `false` | Add `conversation_id` to the PRIMARY KEY of `conversation_items` tables. See [CONV_PK comparison](#conv_pk-comparison) below. |
 | `RESULTS_DIR` | `./results` | Output directory for CSVs |

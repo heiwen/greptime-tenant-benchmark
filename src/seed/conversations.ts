@@ -2,7 +2,7 @@ import { sql, tenantTable } from '../db.js';
 import { config } from '../config.js';
 import { makeProgressLogger } from './progress.js';
 import { randomJson } from './text.js';
-import { tenantConversationId } from '../workloads/helpers.js';
+import { tenantConversationId, pickConversationIndex } from '../workloads/helpers.js';
 import type { Strategy, ItemType } from '../types.js';
 
 export const ITEM_TYPE_CONFIG: Record<ItemType, { weight: number; dataBytes: number }> = {
@@ -13,7 +13,7 @@ export const ITEM_TYPE_CONFIG: Record<ItemType, { weight: number; dataBytes: num
 
 const ITEM_TYPES = Object.keys(ITEM_TYPE_CONFIG) as ItemType[];
 
-function pickItemType(): ItemType {
+export function pickItemType(): ItemType {
   const r = Math.random();
   let cumulative = 0;
   for (const type of ITEM_TYPES) {
@@ -48,6 +48,47 @@ export function generateItemRow(
 
 function randomTimestampInRange(startMs: number, endMs: number): string {
   return new Date(startMs + Math.random() * (endMs - startMs)).toISOString();
+}
+
+// Half-width of the jitter window around a clustered conversation's anchor time.
+const SESSION_HALF_WINDOW_MS = 48 * 60 * 60 * 1000; // ±48 hours
+
+function sessionPad(segStart: number, segEnd: number): number {
+  return Math.min(SESSION_HALF_WINDOW_MS, (segEnd - segStart) / 2);
+}
+
+function buildConversationAnchors(
+  conversationsPerTenant: number,
+  timeRanges: { historicalStart: number; historicalEnd: number; recentStart: number; recentEnd: number; freshStart: number; freshEnd: number },
+): Float64Array {
+  const { historicalStart, historicalEnd, recentStart, recentEnd, freshStart, freshEnd } = timeRanges;
+  const historicalCount = Math.floor(conversationsPerTenant * 0.75);
+  const recentCount     = Math.floor(conversationsPerTenant * 0.15);
+
+  const anchors = new Float64Array(conversationsPerTenant);
+  const segments = [
+    { count: historicalCount,                                          start: historicalStart, end: historicalEnd },
+    { count: recentCount,                                              start: recentStart,     end: recentEnd },
+    { count: conversationsPerTenant - historicalCount - recentCount,   start: freshStart,      end: freshEnd },
+  ];
+
+  let idx = 0;
+  for (const seg of segments) {
+    const pad = sessionPad(seg.start, seg.end);
+    const anchorStart = seg.start + pad;
+    const anchorEnd   = seg.end   - pad;
+    for (let i = 0; i < seg.count; i++) {
+      anchors[idx++] = anchorStart + Math.random() * (anchorEnd - anchorStart);
+    }
+  }
+  return anchors;
+}
+
+function itemTimestampForConversation(anchorMs: number, segStart: number, segEnd: number): string {
+  const pad = sessionPad(segStart, segEnd);
+  const offset = (Math.random() * 2 - 1) * pad;
+  const ts = Math.max(segStart, Math.min(segEnd, anchorMs + offset));
+  return new Date(ts).toISOString();
 }
 
 async function retryInsert(fn: () => Promise<void>, retries = 10, delayMs = 15_000): Promise<void> {
@@ -87,16 +128,17 @@ async function seedItemsForTenant(
   const toInsert = totalPerTenant - existing;
   const { historicalStart, historicalEnd, recentStart, recentEnd, freshStart, freshEnd } = timeRanges;
 
-  // Generate deterministic conversation IDs — must match what workloads query via tenantConversationId()
-  const conversationIds: string[] = [];
-  for (let i = 0; i < conversationsPerTenant; i++) {
-    conversationIds.push(tenantConversationId(tenantId, i));
-  }
+  // Clustered conversations (index < half) all have historical anchors because
+  // half = floor(N/2) < floor(N*0.75) = historicalCount. Assigning clustered conversations
+  // to non-historical segments would clamp their items to the segment boundary instead of
+  // the anchor neighbourhood, breaking the clustering guarantee. Only the historical segment
+  // uses the clustered pool; recent and fresh segments use scattered only.
+  const anchors = buildConversationAnchors(conversationsPerTenant, timeRanges);
 
   const segments = [
-    { count: Math.floor(toInsert * 0.75), start: historicalStart, end: historicalEnd },
-    { count: Math.floor(toInsert * 0.15), start: recentStart,     end: recentEnd },
-    { count: toInsert - Math.floor(toInsert * 0.75) - Math.floor(toInsert * 0.15), start: freshStart, end: freshEnd },
+    { count: Math.floor(toInsert * 0.75), start: historicalStart, end: historicalEnd, clusteredOk: true  },
+    { count: Math.floor(toInsert * 0.15), start: recentStart,     end: recentEnd,     clusteredOk: false },
+    { count: toInsert - Math.floor(toInsert * 0.75) - Math.floor(toInsert * 0.15), start: freshStart, end: freshEnd, clusteredOk: false },
   ];
 
   for (const seg of segments) {
@@ -105,8 +147,12 @@ async function seedItemsForTenant(
       const thisBatch = Math.min(batchSize, seg.count - segInserted);
       const rows: Record<string, unknown>[] = [];
       for (let i = 0; i < thisBatch; i++) {
-        const conversationId = conversationIds[Math.floor(Math.random() * conversationIds.length)];
-        rows.push(generateItemRow(strategy === 'b' ? tenantId : null, conversationId, randomTimestampInRange(seg.start, seg.end)));
+        const pool = seg.clusteredOk && Math.random() < 0.5 ? 'clustered' : 'scattered';
+        const convIdx = pickConversationIndex(pool, conversationsPerTenant);
+        const timestamp = pool === 'clustered'
+          ? itemTimestampForConversation(anchors[convIdx], seg.start, seg.end)
+          : randomTimestampInRange(seg.start, seg.end);
+        rows.push(generateItemRow(strategy === 'b' ? tenantId : null, tenantConversationId(tenantId, convIdx), timestamp));
       }
       await retryInsert(() => sql`INSERT INTO ${sql(tableName)} ${sql(rows)}`);
       segInserted += thisBatch;

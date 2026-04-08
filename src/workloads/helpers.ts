@@ -1,3 +1,14 @@
+// Conversation index space is split in half:
+//   [0, half)  → clustered: items seeded within ±48h of a single anchor (single-session)
+//   [half, N)  → scattered: items spread randomly across 18 months (multi-session)
+// Both pools are seeded and benchmarked independently via q-conv-clustered / q-conv-scattered.
+export function pickConversationIndex(pool: 'clustered' | 'scattered', total: number): number {
+  const half = Math.floor(total / 2);
+  return pool === 'clustered'
+    ? Math.floor(Math.random() * half)
+    : half + Math.floor(Math.random() * (total - half));
+}
+
 /**
  * Generate a deterministic conversation ID for a given tenant + index.
  * Uses a simple hash of the tenant ID and index to produce a valid UUID v4.

@@ -1,3 +1,4 @@
+import { config } from '../config.js';
 import { PARTITION_CLAUSE_ON } from './partitions.js';
 
 export function spansTableB(): string {
@@ -73,13 +74,14 @@ WITH ('append_mode' = 'true')`;
 }
 
 export function conversationItemsTableB(): string {
+  const pk = config.convPk ? '\n  PRIMARY KEY (tenant_id, conversation_id),' : '';
   return `CREATE TABLE IF NOT EXISTS conversation_items (
   tenant_id VARCHAR(36) NOT NULL INVERTED INDEX,
   "id" VARCHAR(36) NOT NULL,
   conversation_id VARCHAR(36) NOT NULL SKIPPING INDEX WITH(type='BLOOM', granularity=10240),
   created_at TIMESTAMP(3) NOT NULL TIME INDEX,
   "type" VARCHAR(64),
-  "data" STRING,
+  "data" STRING,${pk}
 )
 ${PARTITION_CLAUSE_ON('tenant_id')}
 WITH ('append_mode' = 'true')`;
@@ -88,12 +90,13 @@ WITH ('append_mode' = 'true')`;
 export function conversationItemsTableA(tenantId: string): string {
   const suffix = tenantId.replace(/-/g, '');
   const tableName = `conversation_items_${suffix}`;
+  const pk = config.convPk ? '\n  PRIMARY KEY (conversation_id),' : '';
   return `CREATE TABLE IF NOT EXISTS ${tableName} (
   "id" VARCHAR(36) NOT NULL,
   conversation_id VARCHAR(36) NOT NULL SKIPPING INDEX WITH(type='BLOOM', granularity=10240),
   created_at TIMESTAMP(3) NOT NULL TIME INDEX,
   "type" VARCHAR(64),
-  "data" STRING,
+  "data" STRING,${pk}
 )
 WITH ('append_mode' = 'true')`;
 }

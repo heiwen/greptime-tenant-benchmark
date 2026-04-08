@@ -1,0 +1,38 @@
+import { sql, tenantTable } from '../db.js';
+import { config } from '../config.js';
+import { tenantConversationId, pickConversationIndex } from './helpers.js';
+import type { WorkloadFn } from './types.js';
+
+// Mirrors the gateway's "load conversation history before sending next LLM turn" pattern:
+// fetch all items for a single conversation_id, including the data payload, in chronological order.
+//
+// 'clustered'  → picks from the first half of conversation IDs, whose items are seeded within
+//               ±48h of a single anchor time (single-session conversations).
+// 'scattered'  → picks from the second half, whose items are spread randomly across 18 months
+//               (long-running conversations resumed many times).
+export function qConvS2(pool: 'clustered' | 'scattered'): WorkloadFn {
+  const total = config.conversationsPerTenant;
+  return async ({ tenantId, strategy }) => {
+    const conversationId = tenantConversationId(tenantId, pickConversationIndex(pool, total));
+
+    if (strategy === 'b') {
+      await sql`
+        SELECT "id", conversation_id, created_at, "type", "data"
+        FROM conversation_items
+        WHERE tenant_id = ${tenantId}
+          AND conversation_id = ${conversationId}
+        ORDER BY created_at ASC
+      `;
+    } else {
+      const table = tenantTable('conversation_items', tenantId);
+      await sql`
+        SELECT "id", conversation_id, created_at, "type", "data"
+        FROM ${sql(table)}
+        WHERE conversation_id = ${conversationId}
+        ORDER BY created_at ASC
+      `;
+    }
+
+    return {};
+  };
+}

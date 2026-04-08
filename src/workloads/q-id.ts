@@ -1,18 +1,23 @@
 import { sql, tenantTable } from '../db.js';
 import { config } from '../config.js';
-import { tenantConversationId } from './helpers.js';
+import { tenantConversationId, pickConversationIndex } from './helpers.js';
 import type { WorkloadFn, CursorState } from './types.js';
 
-// Module-level cursor maps keyed by tenantId
 const spansCursors = new Map<string, CursorState>();
 
-// S2 cursor keyed by `${tenantId}:${conversationId}` — pagination is per-conversation,
-// matching the gateway's listItems access pattern.
-const itemsCursors = new Map<string, CursorState>();
+// One active conversation per tenant. Pages through it until exhausted, then picks a new one.
+// Bounded to tenantCount entries (vs. one entry per conversation in the old approach).
+interface S2State { conversationId: string; cursor: CursorState | null; }
+const itemsState = new Map<string, S2State>();
 
-function pickConversationId(tenantId: string): string {
-  const idx = Math.floor(Math.random() * config.conversationsPerTenant);
-  return tenantConversationId(tenantId, idx);
+function getOrInitS2State(tenantId: string): S2State {
+  let state = itemsState.get(tenantId);
+  if (!state) {
+    const idx = pickConversationIndex('scattered', config.conversationsPerTenant);
+    state = { conversationId: tenantConversationId(tenantId, idx), cursor: null };
+    itemsState.set(tenantId, state);
+  }
+  return state;
 }
 
 export function qIdS1(_page: number): WorkloadFn {
@@ -93,11 +98,8 @@ export function qIdS1(_page: number): WorkloadFn {
 
 export function qIdS2(_page: number): WorkloadFn {
   return async ({ tenantId, strategy }) => {
-    // Pick a conversation to paginate — matches gateway's listItems(conversationId) pattern.
-    // When the cursor is exhausted we pick a new random conversation next invocation.
-    const conversationId = pickConversationId(tenantId);
-    const cursorKey = `${tenantId}:${conversationId}`;
-    const cursor = itemsCursors.get(cursorKey);
+    const state = getOrInitS2State(tenantId);
+    const { conversationId, cursor } = state;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let rows: any[];
@@ -123,8 +125,7 @@ export function qIdS2(_page: number): WorkloadFn {
         `;
       }
     } else {
-      const lastTs = cursor.lastTs;
-      const lastId = cursor.lastId;
+      const { lastTs, lastId } = cursor;
 
       if (strategy === 'b') {
         rows = await sql`
@@ -151,12 +152,10 @@ export function qIdS2(_page: number): WorkloadFn {
 
     if (rows.length > 0) {
       const last = rows[rows.length - 1];
-      itemsCursors.set(cursorKey, {
-        lastTs: last.created_at,
-        lastId: last.id,
-      });
+      state.cursor = { lastTs: last.created_at, lastId: last.id };
     } else {
-      itemsCursors.delete(cursorKey);
+      // Conversation exhausted — next call picks a new one
+      itemsState.delete(tenantId);
     }
 
     return {};

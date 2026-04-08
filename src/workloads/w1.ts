@@ -1,20 +1,7 @@
 import { sql, tenantTable } from '../db.js';
 import { randomJson } from '../seed/text.js';
-import { ITEM_TYPE_CONFIG } from '../seed/conversations.js';
+import { ITEM_TYPE_CONFIG, pickItemType } from '../seed/conversations.js';
 import type { WorkloadFn } from './types.js';
-import type { ItemType } from '../types.js';
-
-const ITEM_TYPES = Object.keys(ITEM_TYPE_CONFIG) as ItemType[];
-
-function pickItemType(): ItemType {
-  const r = Math.random();
-  let cumulative = 0;
-  for (const type of ITEM_TYPES) {
-    cumulative += ITEM_TYPE_CONFIG[type].weight;
-    if (r < cumulative) return type;
-  }
-  return 'assistant';
-}
 
 export function w1(): WorkloadFn {
   return async ({ tenantId, strategy }) => {

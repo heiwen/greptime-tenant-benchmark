@@ -17,4 +17,9 @@ export const config = {
   // Scale data per tenant down proportionally when running large tenant counts.
   // e.g. SPARSE_MULTIPLIER=0.2 gives 100k spans/tenant at 10k tenants.
   sparseMultiplier: parseFloat(process.env.SPARSE_MULTIPLIER ?? '1.0'),
+  // Add conversation_id to the PRIMARY KEY of conversation_items tables.
+  // Physically co-locates items per conversation in SST files, making q-conv-scattered fast
+  // at the cost of higher series cardinality (50k series/tenant vs 1).
+  // Run with CONV_PK=false (default) and CONV_PK=true to compare.
+  convPk: (process.env.CONV_PK ?? 'false') === 'true',
 };
