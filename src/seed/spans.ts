@@ -72,8 +72,8 @@ export function generateSpanRow(tenantId: string | null, timestampMs: number): R
   const timestampEndMs = timestampMs + Math.floor(durationNano / 1_000_000);
 
   const row: Record<string, unknown> = {
-    timestamp: new Date(timestampMs),
-    timestamp_end: new Date(timestampEndMs),
+    timestamp: new Date(timestampMs).toISOString(),
+    timestamp_end: new Date(timestampEndMs).toISOString(),
     duration_nano: durationNano,
     trace_id: randomHex(32),
     span_id: randomHex(16),

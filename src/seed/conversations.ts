@@ -26,7 +26,7 @@ function pickItemType(): ItemType {
 export function generateItemRow(
   tenantId: string | null,
   conversationId: string,
-  timestamp: Date,
+  timestamp: string,
 ): Record<string, unknown> {
   const type = pickItemType();
   const dataBytes = ITEM_TYPE_CONFIG[type].dataBytes;
@@ -46,8 +46,8 @@ export function generateItemRow(
   return row;
 }
 
-function randomTimestampInRange(startMs: number, endMs: number): Date {
-  return new Date(startMs + Math.random() * (endMs - startMs));
+function randomTimestampInRange(startMs: number, endMs: number): string {
+  return new Date(startMs + Math.random() * (endMs - startMs)).toISOString();
 }
 
 async function retryInsert(fn: () => Promise<void>, retries = 10, delayMs = 15_000): Promise<void> {
