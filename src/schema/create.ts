@@ -71,7 +71,22 @@ async function main() {
     }
 
     if (strategy === 'a') {
-      const CONCURRENCY = 20;
+      const CONCURRENCY = 5;
+      const DDL_RETRIES = 5;
+      const DDL_RETRY_DELAY_MS = 2000;
+
+      async function createWithRetry(ddl: string): Promise<void> {
+        for (let i = 0; i < DDL_RETRIES; i++) {
+          try {
+            await sql.unsafe(ddl);
+            return;
+          } catch (err) {
+            if (i === DDL_RETRIES - 1) throw err;
+            await new Promise(r => setTimeout(r, DDL_RETRY_DELAY_MS * (i + 1)));
+          }
+        }
+      }
+
       console.log(`Creating Strategy A tables for ${tenants.length} tenants (${CONCURRENCY} concurrent)...`);
       let created = 0;
       let skipped = 0;
@@ -93,7 +108,7 @@ async function main() {
               }
 
               try {
-                await sql.unsafe(spansTableA(tenantId));
+                await createWithRetry(spansTableA(tenantId));
                 created++;
               } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : String(err);
@@ -102,7 +117,7 @@ async function main() {
               }
 
               try {
-                await sql.unsafe(conversationItemsTableA(tenantId));
+                await createWithRetry(conversationItemsTableA(tenantId));
               } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : String(err);
                 console.log(`  Skipped conversation_items for ${tenantId}: ${msg}`);
