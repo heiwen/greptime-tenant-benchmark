@@ -30,47 +30,56 @@ const sql = new SQL('postgres://postgres:test@localhost:5432/postgres', {
 await sql`DROP TABLE IF EXISTS repro`;
 await sql`CREATE TABLE repro (id INT PRIMARY KEY, note TEXT)`;
 
-// ── Test 1: single-row insert, `note` alternates null / non-null ─────────
+// ── Test 1: single-row insert, `note` is randomly null ───────────────────
 for (let i = 0; i < 20; i++) {
-  const note = i % 2 === 0 ? 'hello' : null;
+  const note = Math.random() > 0.5 ? 'hello' : null;
   await sql`INSERT INTO repro VALUES (${i}, ${note})`;
 }
 const s1 = await sql`
   SELECT name FROM pg_prepared_statements
   WHERE statement LIKE 'INSERT INTO repro%'
 `;
-console.log('Test 1 — single-row, alternating null');
+console.log('Test 1 — single-row, random null');
 console.log('  prepared statements:', s1.length, '(expected 1)');
-// → 2  (stabilises at 2^(nullable cols) — bounded but still wrong)
+// → 2  (stabilises at 2^(nullable cols) — bounded for single-row inserts)
 
 await sql`TRUNCATE repro`;
 
-// ── Test 2: sql(rows) 2-row batch, which row is null alternates ──────────
+// ── Test 2: sql(rows) 5-row batch, random nullable field ─────────────────
+// 2^5 = 32 possible null-patterns across the batch; random data hits a new
+// one on nearly every iteration → ~1 new prepared statement per batch.
+const countPerBatch: number[] = [];
 for (let i = 0; i < 20; i++) {
-  const rows = i % 2 === 0
-    ? [{ id: i*2,   note: 'hello' }, { id: i*2+1, note: null  }]
-    : [{ id: i*2,   note: null    }, { id: i*2+1, note: 'hi'  }];
+  const rows = Array.from({ length: 5 }, (_, j) => ({
+    id: i * 5 + j,
+    note: Math.random() > 0.5 ? 'hello' : null,
+  }));
   await sql`INSERT INTO repro ${sql(rows)}`;
+  const snap = await sql`SELECT count(*)::int AS n FROM pg_prepared_statements WHERE statement LIKE 'INSERT INTO repro%'`;
+  countPerBatch.push(Number(snap[0].n));
 }
 const s2 = await sql`
   SELECT name FROM pg_prepared_statements
   WHERE statement LIKE 'INSERT INTO repro%'
 `;
-console.log('\nTest 2 — sql(rows) 2-row batch, null position alternates');
-console.log('  prepared statements:', s2.length, '(expected 1)');
-// → 4  (grows with each batch — unbounded in production)
+console.log('\nTest 2 — sql(rows) 5-row batch, random nulls');
+console.log('  prepared statements after 20 batches:', s2.length, '(expected 1)');
+console.log('  count after each batch:', countPerBatch.join(', '));
+// → ~15–18, growing roughly linearly
+// With 100-row batches (2^100 possible patterns): exactly 1 new statement per batch
 
 await sql.end();
 ```
 
-**Output:**
+**Output** (values vary by run due to randomness, but the growth pattern is consistent):
 
 ```
-Test 1 — single-row, alternating null
+Test 1 — single-row, random null
   prepared statements: 2 (expected 1)
 
-Test 2 — sql(rows) 2-row batch, null position alternates
-  prepared statements: 4 (expected 1)
+Test 2 — sql(rows) 5-row batch, random nulls
+  prepared statements after 20 batches: 18 (expected 1)
+  count after each batch: 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 11, 12, 13, 14, 14, 15, 16, 17, 17, 18
 ```
 
 ---
