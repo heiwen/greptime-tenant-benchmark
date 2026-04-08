@@ -1,6 +1,7 @@
 import { sql } from '../db.js';
 import { spansTableA, spansTableB, conversationItemsTableA, conversationItemsTableB } from './ddl.js';
-import { loadTenants } from '../seed/tenants.js';
+import { generateTenants, saveTenants, loadTenants } from '../seed/tenants.js';
+import { config } from '../config.js';
 import { existsSync } from 'fs';
 
 async function main() {
@@ -30,6 +31,17 @@ async function main() {
 
   for (const strategy of strategies) {
     if (strategy === 'b') {
+      // Generate tenants if not already present — Strategy A's schema step needs this list.
+      if (!existsSync('./results/tenants.json')) {
+        console.log(`Generating ${config.tenantCount} tenants → results/tenants.json`);
+        const generated = generateTenants(config.tenantCount);
+        await saveTenants(generated);
+        tenants = generated;
+      } else {
+        tenants = await loadTenants();
+        console.log(`Loaded ${tenants.length} tenants from results/tenants.json`);
+      }
+
       console.log('Creating Strategy B tables...');
 
       if (dropFlag) {
