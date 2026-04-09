@@ -29,7 +29,7 @@ export function qIdS1(_page: number): WorkloadFn {
 
     if (!cursor) {
       // First call: no cursor, get latest page
-      const now = new Date();
+      const now = new Date().toISOString();
       if (strategy === 'b') {
         rows = await sql`
           SELECT trace_id, span_id, "timestamp", duration_nano,
@@ -85,7 +85,7 @@ export function qIdS1(_page: number): WorkloadFn {
     if (rows.length > 0) {
       const last = rows[rows.length - 1];
       spansCursors.set(tenantId, {
-        lastTs: last.timestamp,
+        lastTs: last.timestamp instanceof Date ? last.timestamp.toISOString() : last.timestamp,
         lastId: last.span_id,
       });
     } else {
@@ -152,7 +152,7 @@ export function qIdS2(_page: number): WorkloadFn {
 
     if (rows.length > 0) {
       const last = rows[rows.length - 1];
-      state.cursor = { lastTs: last.created_at, lastId: last.id };
+      state.cursor = { lastTs: last.created_at instanceof Date ? last.created_at.toISOString() : last.created_at, lastId: last.id };
     } else {
       // Conversation exhausted — next call picks a new one
       itemsState.delete(tenantId);

@@ -5,7 +5,7 @@ import { tenantConversationId } from './helpers.js';
 
 export function qTimeS1(windowHours: number): WorkloadFn {
   return async ({ tenantId, strategy }) => {
-    const cutoff = new Date(Date.now() - windowHours * 3600 * 1000);
+    const cutoff = new Date(Date.now() - windowHours * 3600 * 1000).toISOString();
 
     if (strategy === 'b') {
       await sql`
@@ -37,7 +37,7 @@ export function qTimeS1(windowHours: number): WorkloadFn {
 
 export function qTimeS2(windowHours: number): WorkloadFn {
   return async ({ tenantId, strategy }) => {
-    const cutoff = new Date(Date.now() - windowHours * 3600 * 1000);
+    const cutoff = new Date(Date.now() - windowHours * 3600 * 1000).toISOString();
     const convIndex = Math.floor(Math.random() * config.conversationsPerTenant);
     const conversationId = tenantConversationId(tenantId, convIndex);
 
