@@ -1,0 +1,5 @@
+workload,strategy,scenario,concurrency,durationSecs,count,errors,p50,p90,p95,p99,throughputQps,throughputMbps
+q-conv-clustered-10vu,a,s2,10,120.123,10829,0,74,252,317,450,90.14926367140347,0
+q-conv-scattered-10vu,a,s2,10,120.123,8803,0,111,260,307,399,73.28321803484761,0
+q-time-1h-10vu-s2,a,s2,10,120.007,116514,0,10,13,14,16,970.8933645537343,0
+q-time-24h-10vu-s2,a,s2,10,120.007,113917,0,11,14,14,16,949.2529602439857,0
