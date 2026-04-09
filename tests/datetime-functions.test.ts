@@ -184,8 +184,8 @@ describe('time histogram (DATE_TRUNC + GROUP BY + aggregates)', () => {
       SELECT DATE_TRUNC('hour', "timestamp") AS hour_bucket, COUNT(*) AS c
       FROM ${sql(TABLE)}
       WHERE service_name = ${'dt-' + MARKER}
-        AND "timestamp" >= ${from}
-        AND "timestamp" < ${to}
+        AND "timestamp" >= ${from.toISOString()}
+        AND "timestamp" < ${to.toISOString()}
       GROUP BY hour_bucket
       ORDER BY hour_bucket
     `;

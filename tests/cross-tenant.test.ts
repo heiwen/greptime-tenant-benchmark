@@ -14,7 +14,7 @@ const TENANT_F    = `f${crypto.randomUUID().slice(1)}`; // starts with 'f'
 function sharedRow(tenantId: string, offsetSec: number): Record<string, unknown> {
   return {
     tenant_id:          tenantId,
-    timestamp:          ts(-100000 + offsetSec),
+    timestamp:          ts(-100000 + offsetSec).toISOString(),
     trace_id:           randomHex(32),
     span_id:            randomHex(16),
     service_name:       `svc-${tenantId.slice(0, 8)}`,

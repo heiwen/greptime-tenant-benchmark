@@ -1,8 +1,10 @@
 import { SQL } from 'bun';
 
+// NOTE: Bun test shares module state across parallel workers, so this pool is
+// used concurrently by all 12 test files. Size it to handle that load.
 export const sql = new SQL(
   process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
-  { max: 20, idleTimeout: 20, connectionTimeout: 10, ssl: false, prepare: false },
+  { max: 20, idleTimeout: 30, connectionTimeout: 15, ssl: false, prepare: false },
 );
 
 // ── Naming ────────────────────────────────────────────────────────────────────
@@ -25,9 +27,26 @@ export function ts(offsetSec: number = 0): Date {
 
 // ── DDL ───────────────────────────────────────────────────────────────────────
 
+/**
+ * Retry wrapper for DDL operations that may briefly fail during parallel test
+ * startup due to transient connection disruptions from concurrent test files.
+ */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 200): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 /** Standard spans table, no indexes. PRIMARY KEY (span_id). */
 export async function createSpansTable(name: string): Promise<void> {
-  await sql.unsafe(`
+  await withRetry(() => sql.unsafe(`
     CREATE TABLE IF NOT EXISTS ${name} (
       "timestamp"          TIMESTAMP(9) NOT NULL TIME INDEX,
       timestamp_end        TIMESTAMP(9),
@@ -50,12 +69,12 @@ export async function createSpansTable(name: string): Promise<void> {
       span_attributes      STRING,
       PRIMARY KEY (span_id)
     ) WITH ('append_mode' = 'true')
-  `);
+  `));
 }
 
 /** Spans table with INVERTED INDEX on span_name and BLOOM SKIPPING INDEX on trace_id. */
 export async function createIndexedSpansTable(name: string): Promise<void> {
-  await sql.unsafe(`
+  await withRetry(() => sql.unsafe(`
     CREATE TABLE IF NOT EXISTS ${name} (
       "timestamp"         TIMESTAMP(9) NOT NULL TIME INDEX,
       trace_id            VARCHAR(32) NOT NULL SKIPPING INDEX WITH(type='BLOOM', granularity=1024),
@@ -66,12 +85,12 @@ export async function createIndexedSpansTable(name: string): Promise<void> {
       gen_ai_input_tokens INT,
       PRIMARY KEY (span_id)
     ) WITH ('append_mode' = 'true')
-  `);
+  `));
 }
 
 /** Shared spans table for multi-tenant tests (Strategy B). */
 export async function createSharedSpansTable(name: string): Promise<void> {
-  await sql.unsafe(`
+  await withRetry(() => sql.unsafe(`
     CREATE TABLE IF NOT EXISTS ${name} (
       tenant_id           VARCHAR(36) NOT NULL,
       "timestamp"         TIMESTAMP(9) NOT NULL TIME INDEX,
@@ -82,12 +101,12 @@ export async function createSharedSpansTable(name: string): Promise<void> {
       gen_ai_input_tokens INT,
       PRIMARY KEY (tenant_id, span_id)
     ) WITH ('append_mode' = 'true')
-  `);
+  `));
 }
 
 /** Conversation items table. */
 export async function createItemsTable(name: string): Promise<void> {
-  await sql.unsafe(`
+  await withRetry(() => sql.unsafe(`
     CREATE TABLE IF NOT EXISTS ${name} (
       "id"            VARCHAR(36) NOT NULL,
       conversation_id VARCHAR(36) NOT NULL,
@@ -96,18 +115,31 @@ export async function createItemsTable(name: string): Promise<void> {
       "data"          STRING,
       PRIMARY KEY (id)
     ) WITH ('append_mode' = 'true')
-  `);
+  `));
 }
 
 export async function dropTable(name: string): Promise<void> {
-  await sql.unsafe(`DROP TABLE IF EXISTS ${name}`);
+  await withRetry(() => sql.unsafe(`DROP TABLE IF EXISTS ${name}`));
 }
 
 // ── Row factories ─────────────────────────────────────────────────────────────
 
+/**
+ * Bun.SQL serialises Date objects via .toString() (locale string) rather than
+ * .toISOString(), which GreptimeDB cannot parse. Convert every Date in a row to
+ * an ISO 8601 string before passing it to sql(rows).
+ */
+function normaliseDates(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    out[k] = v instanceof Date ? v.toISOString() : v;
+  }
+  return out;
+}
+
 /** Full span row with all nullable fields set. Override any field via `overrides`. */
 export function spanRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
+  return normaliseDates({
     timestamp:             ts(),
     timestamp_end:         ts(1),
     duration_nano:         500_000_000,
@@ -128,12 +160,12 @@ export function spanRow(overrides: Record<string, unknown> = {}): Record<string,
     gen_ai_output_messages: JSON.stringify([{ role: 'assistant', content: 'hi' }]),
     span_attributes:       '{}',
     ...overrides,
-  };
+  });
 }
 
 /** Minimal span row — only required fields. */
 export function minimalSpanRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
+  return normaliseDates({
     timestamp:            ts(),
     timestamp_end:        null,
     duration_nano:        null,
@@ -154,18 +186,18 @@ export function minimalSpanRow(overrides: Record<string, unknown> = {}): Record<
     gen_ai_output_messages: null,
     span_attributes:      null,
     ...overrides,
-  };
+  });
 }
 
 export function itemRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
+  return normaliseDates({
     id:              crypto.randomUUID(),
     conversation_id: crypto.randomUUID(),
     created_at:      ts(),
     type:            'user',
     data:            JSON.stringify({ content: 'hello' }),
     ...overrides,
-  };
+  });
 }
 
 /** Count rows in a table, optionally filtered by an extra WHERE clause snippet. */

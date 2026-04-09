@@ -1,5 +1,13 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { sql, createSpansTable, dropTable, spanRow, uniqueSuffix, randomHex, ts } from './helpers.ts';
+import { SQL } from 'bun';
+import { createSpansTable, dropTable, spanRow, uniqueSuffix, randomHex, ts } from './helpers.ts';
+
+// Own pool: MIN/MAX on integer columns triggers ERR_POSTGRES_UNSUPPORTED_NUMERIC_FORMAT.
+// Isolated to avoid corrupting the shared pool used by parallel test files.
+const sql = new SQL(
+  process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
+  { max: 5, idleTimeout: 30, connectionTimeout: 15, ssl: false, prepare: false },
+);
 
 const TABLE = `test_spans_${uniqueSuffix()}`;
 

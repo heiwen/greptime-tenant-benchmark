@@ -1,5 +1,13 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { sql, createSpansTable, dropTable, spanRow, uniqueSuffix, randomHex, ts } from './helpers.ts';
+import { SQL } from 'bun';
+import { createSpansTable, dropTable, spanRow, uniqueSuffix, randomHex, ts } from './helpers.ts';
+
+// Own pool: SELECT * on spans table triggers ERR_POSTGRES_UNSUPPORTED_NUMERIC_FORMAT.
+// Isolated to avoid corrupting the shared pool used by parallel test files.
+const sql = new SQL(
+  process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
+  { max: 5, idleTimeout: 30, connectionTimeout: 15, ssl: false, prepare: false },
+);
 
 const TABLE = `test_spans_${uniqueSuffix()}`;
 
@@ -25,7 +33,7 @@ describe('time range queries', () => {
     const rows = await sql`
       SELECT span_id FROM ${sql(TABLE)}
       WHERE service_name = ${'excl-' + marker}
-        AND "timestamp" > ${cutoff}
+        AND "timestamp" > ${cutoff.toISOString()}
     `;
 
     const ids = rows.map((r: Record<string, unknown>) => r.span_id);
@@ -38,7 +46,7 @@ describe('time range queries', () => {
     const row = spanRow({ service_name: `empty-${marker}` });
     await sql`INSERT INTO ${sql(TABLE)} ${sql([row])}`;
 
-    const future = new Date(Date.now() + 3_600_000);
+    const future = new Date(Date.now() + 3_600_000).toISOString();
     const rows = await sql`
       SELECT span_id FROM ${sql(TABLE)}
       WHERE service_name = ${'empty-' + marker}
@@ -182,7 +190,7 @@ describe('cursor pagination', () => {
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const allIds = new Set<string>();
-    let lastTs: Date | null = null;
+    let lastTs: string | null = null;
     let lastId: string | null = null;
     let pages = 0;
 
@@ -216,7 +224,7 @@ describe('cursor pagination', () => {
       }
 
       const last = page[page.length - 1];
-      lastTs = new Date(last.timestamp as string | Date);
+      lastTs = new Date(last.timestamp as string | Date).toISOString();
       lastId = last.span_id as string;
 
       if (page.length < 50) break;

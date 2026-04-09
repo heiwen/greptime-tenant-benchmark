@@ -115,7 +115,7 @@ describe('BETWEEN', () => {
     const result = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
       WHERE service_name = ${'btw-' + marker2}
-        AND "timestamp" BETWEEN ${t1} AND ${t2}
+        AND "timestamp" BETWEEN ${t1.toISOString()} AND ${t2.toISOString()}
     `;
     expect(Number(result[0].c)).toBe(3);
   });
@@ -313,7 +313,7 @@ describe('index edge cases', () => {
     const traceId = randomHex(32);
     const spanName = `combined-${randomHex(8)}`;
     const row = {
-      timestamp:          ts(-11000),
+      timestamp:          ts(-11000).toISOString(),
       trace_id:           traceId,
       span_id:            randomHex(16),
       span_name:          spanName,

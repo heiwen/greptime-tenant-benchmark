@@ -1,5 +1,14 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { sql, createSpansTable, createItemsTable, dropTable, spanRow, minimalSpanRow, itemRow, uniqueSuffix, ts } from './helpers.ts';
+import { SQL } from 'bun';
+import { createSpansTable, createItemsTable, dropTable, spanRow, minimalSpanRow, itemRow, uniqueSuffix, ts } from './helpers.ts';
+
+// Own pool: SELECT * on spans table triggers ERR_POSTGRES_UNSUPPORTED_NUMERIC_FORMAT
+// (BIGINT/INT columns returned in binary format). Isolated to avoid corrupting the
+// shared helpers.ts pool used by other parallel test files for DDL.
+const sql = new SQL(
+  process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
+  { max: 5, idleTimeout: 30, connectionTimeout: 15, ssl: false, prepare: false },
+);
 
 const SPANS = `test_spans_${uniqueSuffix()}`;
 const ITEMS = `test_items_${uniqueSuffix()}`;

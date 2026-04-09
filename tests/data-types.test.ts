@@ -1,5 +1,13 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { sql, createSpansTable, createItemsTable, dropTable, spanRow, itemRow, uniqueSuffix, randomHex, ts } from './helpers.ts';
+import { SQL } from 'bun';
+import { createSpansTable, createItemsTable, dropTable, spanRow, itemRow, uniqueSuffix } from './helpers.ts';
+
+// Use a dedicated pool so that ERR_POSTGRES_UNSUPPORTED_NUMERIC_FORMAT connection closures
+// do not corrupt the shared helpers.ts pool used by other test files.
+const sql = new SQL(
+  process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
+  { max: 3, idleTimeout: 30, connectionTimeout: 15, ssl: false, prepare: false },
+);
 
 const SPANS = `test_spans_${uniqueSuffix()}`;
 const ITEMS = `test_items_${uniqueSuffix()}`;
@@ -212,9 +220,13 @@ describe('CAST expressions', () => {
     const row = spanRow({ span_name: 'not-a-number' });
     await sql`INSERT INTO ${sql(SPANS)} ${sql([row])}`;
 
-    await expect(
-      sql`SELECT CAST(span_name AS INT) AS v FROM ${sql(SPANS)} WHERE span_id = ${row.span_id as string}`,
-    ).rejects.toThrow();
+    let threw = false;
+    try {
+      await sql`SELECT CAST(span_name AS INT) AS v FROM ${sql(SPANS)} WHERE span_id = ${row.span_id as string}`;
+    } catch {
+      threw = true;
+    }
+    expect(threw).toBe(true);
   });
 
   test('implicit JS number coercion to BIGINT UNSIGNED', async () => {
