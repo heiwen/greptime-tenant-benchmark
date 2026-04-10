@@ -3,7 +3,7 @@ import { config } from './config.js';
 
 export const sql = new SQL(config.dbUrl, {
   max: 100,
-  idleTimeout: 20,
+  idleTimeout: 300,
   connectionTimeout: 10,
   ssl: false,    // local Docker has no TLS
   prepare: false, // workaround: Bun.SQL keys prepared statement cache on null/non-null
