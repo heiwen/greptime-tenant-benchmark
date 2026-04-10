@@ -78,7 +78,7 @@ export function conversationItemsTableB(): string {
   return `CREATE TABLE IF NOT EXISTS conversation_items (
   tenant_id VARCHAR(36) NOT NULL INVERTED INDEX,
   "id" VARCHAR(36) NOT NULL,
-  conversation_id VARCHAR(36) NOT NULL SKIPPING INDEX WITH(type='BLOOM', granularity=10240),
+  conversation_id VARCHAR(36) NOT NULL${config.convPk ? '' : ' SKIPPING INDEX WITH(type=\'BLOOM\', granularity=10240)'},
   created_at TIMESTAMP(3) NOT NULL TIME INDEX,
   "type" VARCHAR(64),
   "data" STRING,${pk}
@@ -93,7 +93,7 @@ export function conversationItemsTableA(tenantId: string): string {
   const pk = config.convPk ? '\n  PRIMARY KEY (conversation_id),' : '';
   return `CREATE TABLE IF NOT EXISTS ${tableName} (
   "id" VARCHAR(36) NOT NULL,
-  conversation_id VARCHAR(36) NOT NULL SKIPPING INDEX WITH(type='BLOOM', granularity=10240),
+  conversation_id VARCHAR(36) NOT NULL${config.convPk ? '' : ' SKIPPING INDEX WITH(type=\'BLOOM\', granularity=10240)'},
   created_at TIMESTAMP(3) NOT NULL TIME INDEX,
   "type" VARCHAR(64),
   "data" STRING,${pk}
