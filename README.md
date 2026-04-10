@@ -171,11 +171,11 @@ For the baseline 100-tenant run omit the env var (default is 100).
 
 ### Step 3 — Seed data
 
-Full scale (~420 GB compressed, expect 3–6 hours with default 50-tenant concurrency):
+Full scale on r6i.4xlarge (6 workers × 20 concurrency = 120 DB connections; GreptimeDB's write path is I/O-bound so its ~11 cgroup-capped vCPUs are not the bottleneck):
 
 ```bash
 tmux new -s seed
-bun run seed -- --strategy b && bun run seed -- --strategy a
+bun run seed -- --strategy b --workers 6 && bun run seed -- --strategy a --workers 6
 ```
 
 Detach so the seed keeps running after you disconnect: `Ctrl+B` then `D`.
@@ -196,8 +196,10 @@ Scale is controlled by env vars (defaults shown):
 | `CONVERSATIONS_PER_TENANT` | `50000` | Distinct conversation IDs per tenant |
 | `SEED_BATCH_SIZE` | `500` | Rows per INSERT for conversation items |
 | `SPAN_BATCH_SIZE` | `100` | Spans per INSERT batch |
-| `SEED_CONCURRENCY` | `20` | Tenants seeded in parallel. Higher values increase DB write parallelism but also JS CPU contention; 10–20 is the practical sweet spot. |
+| `SEED_CONCURRENCY` | `20` | Tenants seeded in parallel per worker. 10–20 is the practical sweet spot. |
 | `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant down proportionally for large tenant counts (e.g. `0.2` gives 100k spans/tenant) |
+
+Seeding is CPU-bound (row generation) and single-threaded per process. Use `--workers N` to parallelise across CPU cores. Each worker handles an equal slice of tenants with its own DB connection pool (`SEED_CONCURRENCY` connections).
 
 For a **smoke run** to verify everything works before committing to full seeding:
 
@@ -214,14 +216,14 @@ bun run seed -- --strategy b
 For the **1k-tenant run** (same per-tenant density, ~4 TB compressed):
 
 ```bash
-TENANT_COUNT=1000 bun run seed -- --strategy b && TENANT_COUNT=1000 bun run seed -- --strategy a
+TENANT_COUNT=1000 bun run seed -- --strategy b --workers 6 && TENANT_COUNT=1000 bun run seed -- --strategy a --workers 6
 ```
 
 For the **10k-tenant run** (reduced density so Q-time 1h returns ~50 rows, ~3.5 TB compressed):
 
 ```bash
-TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy b
-TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy a
+TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy b --workers 6
+TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy a --workers 6
 ```
 
 ### Step 4 — Run the benchmark
