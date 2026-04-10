@@ -399,7 +399,8 @@ Note: the public IP changes after a stop/start. Re-run the `describe-instances` 
 
 | Variable | Default | Description |
 |---|---|---|
-| `GREPTIMEDB_URL` | `postgres://greptime@localhost:4003/public` | Connection string (points at HAProxy) |
+| `GREPTIMEDB_URL` | `postgres://greptime@localhost:4003/public` | Postgres connection string (points at HAProxy) — used for schema, queries, and resume checks |
+| `GREPTIMEDB_HTTP_URL` | `http://localhost:4000` | HTTP base URL (points at HAProxy) — used for InfluxDB LP seeding writes |
 | `GREPTIMEDB_PROMETHEUS_URLS` | `http://localhost:15000/metrics,...` | Comma-separated datanode `/metrics` endpoints. Must be set to the server's IP if running the benchmark client from a different machine. |
 | `TENANT_COUNT` | `100` | |
 | `SPANS_PER_TENANT` | `500000` | |

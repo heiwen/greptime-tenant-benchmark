@@ -1,5 +1,6 @@
 export const config = {
   dbUrl: process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
+  httpUrl: process.env.GREPTIMEDB_HTTP_URL ?? 'http://localhost:4000',
   // Comma-separated list of datanode HTTP metrics endpoints.
   // Datanodes expose mito storage metrics (cache, memtable, open-files).
   // The frontend (:4000) only exposes catalog/routing metrics, NOT mito metrics.

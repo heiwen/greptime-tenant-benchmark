@@ -2,6 +2,7 @@ import { sql, tenantTable } from '../db.js';
 import { config } from '../config.js';
 import { formatDuration } from './progress.js';
 import { randomJson } from './text.js';
+import { itemRowToLp, lpWriteBatch } from './lp.js';
 import { tenantConversationId, pickConversationIndex } from '../workloads/helpers.js';
 import type { Strategy, ItemType } from '../types.js';
 
@@ -91,18 +92,6 @@ function itemTimestampForConversation(anchorMs: number, segStart: number, segEnd
   return new Date(ts).toISOString();
 }
 
-async function retryInsert(fn: () => Promise<void>, retries = 10, delayMs = 15_000): Promise<void> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await fn();
-    } catch (e) {
-      if (i === retries - 1) throw e;
-      console.log(`  [retry] Connection error, waiting ${delayMs / 1000}s for frontend to restart... (${i + 1}/${retries})`);
-      await new Promise(r => setTimeout(r, delayMs));
-    }
-  }
-}
-
 async function countItems(strategy: Strategy, tableName: string, tenantId: string): Promise<number> {
   const result = strategy === 'b'
     ? await sql`SELECT COUNT(*) as c FROM conversation_items WHERE tenant_id = ${tenantId}`
@@ -119,6 +108,7 @@ async function seedItemsForTenant(
   onBatch?: (n: number) => void,
 ): Promise<void> {
   const tableName = strategy === 'a' ? tenantTable('conversation_items', tenantId) : 'conversation_items';
+  const lpUrl = `${config.httpUrl}/v1/influxdb/write?db=public&precision=ns`;
   const batchSize = config.seedBatchSize;
 
   const existing = await countItems(strategy, tableName, tenantId);
@@ -146,17 +136,18 @@ async function seedItemsForTenant(
     let segInserted = 0;
     while (segInserted < seg.count) {
       const thisBatch = Math.min(batchSize, seg.count - segInserted);
-      const rows: Record<string, unknown>[] = [];
+      const lines: string[] = [];
       for (let i = 0; i < thisBatch; i++) {
         const pool = seg.clusteredOk && Math.random() < 0.5 ? 'clustered' : 'scattered';
         const convIdx = pickConversationIndex(pool, conversationsPerTenant);
         const timestamp = pool === 'clustered'
           ? itemTimestampForConversation(anchors[convIdx], seg.start, seg.end)
           : randomTimestampInRange(seg.start, seg.end);
-        rows.push(generateItemRow(strategy === 'b' ? tenantId : null, tenantConversationId(tenantId, convIdx), timestamp));
+        const row = generateItemRow(strategy === 'b' ? tenantId : null, tenantConversationId(tenantId, convIdx), timestamp);
+        lines.push(itemRowToLp(tableName, row, config.convPk, strategy));
         if (i % 10 === 9) await Bun.sleep(0); // yield so concurrent tasks can interleave
       }
-      await retryInsert(() => sql`INSERT INTO ${sql(tableName)} ${sql(rows)}`);
+      await lpWriteBatch(lpUrl, lines);
       segInserted += thisBatch;
       onBatch?.(thisBatch);
     }

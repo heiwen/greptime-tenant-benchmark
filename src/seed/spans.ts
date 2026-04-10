@@ -2,6 +2,7 @@ import { sql, tenantTable } from '../db.js';
 import { config } from '../config.js';
 import { formatDuration } from './progress.js';
 import { randomText, randomJson } from './text.js';
+import { spanRowToLp, lpWriteBatch } from './lp.js';
 import type { Strategy, SpanTier } from '../types.js';
 
 export const TIER_CONFIG: Record<SpanTier, {
@@ -112,18 +113,6 @@ function randomTimestampInRange(startMs: number, endMs: number): number {
   return startMs + Math.random() * (endMs - startMs);
 }
 
-async function retryInsert(fn: () => Promise<void>, retries = 10, delayMs = 15_000): Promise<void> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await fn();
-    } catch (e) {
-      if (i === retries - 1) throw e;
-      console.log(`  [retry] Connection error, waiting ${delayMs / 1000}s for frontend to restart... (${i + 1}/${retries})`);
-      await new Promise(r => setTimeout(r, delayMs));
-    }
-  }
-}
-
 async function countSpans(strategy: Strategy, tableName: string, tenantId: string): Promise<number> {
   const result = strategy === 'b'
     ? await sql`SELECT COUNT(*) as c FROM spans WHERE tenant_id = ${tenantId}`
@@ -139,6 +128,7 @@ async function seedSpansForTenant(
   onBatch?: (n: number) => void,
 ): Promise<void> {
   const tableName = strategy === 'a' ? tenantTable('spans', tenantId) : 'spans';
+  const lpUrl = `${config.httpUrl}/v1/influxdb/write?db=public&precision=ns`;
   const batchSize = config.spanBatchSize;
 
   const existing = await countSpans(strategy, tableName, tenantId);
@@ -161,12 +151,13 @@ async function seedSpansForTenant(
     let segInserted = 0;
     while (segInserted < seg.count) {
       const thisBatch = Math.min(batchSize, seg.count - segInserted);
-      const rows: Record<string, unknown>[] = [];
+      const lines: string[] = [];
       for (let i = 0; i < thisBatch; i++) {
-        rows.push(generateSpanRow(strategy === 'b' ? tenantId : null, randomTimestampInRange(seg.start, seg.end)));
+        const row = generateSpanRow(strategy === 'b' ? tenantId : null, randomTimestampInRange(seg.start, seg.end));
+        lines.push(spanRowToLp(tableName, row));
         if (i % 10 === 9) await Bun.sleep(0); // yield so concurrent tasks can interleave
       }
-      await retryInsert(() => sql`INSERT INTO ${sql(tableName)} ${sql(rows)}`);
+      await lpWriteBatch(lpUrl, lines);
       segInserted += thisBatch;
       totalInserted += thisBatch;
       onBatch?.(thisBatch);
