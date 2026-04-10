@@ -1,5 +1,5 @@
 x-greptimedb: &greptimedb
-  image: greptime/greptimedb:v1.0.0-rc.2-nightly-20260330
+  image: greptime/greptimedb:v1.0.0
 
 services:
   postgres:
