@@ -208,7 +208,7 @@ export async function seedSpans(
     const eta = rps > 0 ? (totalRows_target - totalRows) / rps : 0;
     const etaStr = eta > 0 ? ` | eta: ${formatDuration(eta * 1000)}` : '';
     console.log(
-      `[spans] ${completed}/${tenants.length} tenants | ${totalRows.toLocaleString()} rows | ${rps.toFixed(0)} rows/s | elapsed: ${formatDuration(elapsed * 1000)}${etaStr}`,
+      `[spans] ${completed}/${tenants.length} done, ${inFlight} in-flight | ${totalRows.toLocaleString()} rows | ${rps.toFixed(0)} rows/s | elapsed: ${formatDuration(elapsed * 1000)}${etaStr}`,
     );
   }, 30_000);
 
