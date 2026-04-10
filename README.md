@@ -214,8 +214,7 @@ bun run seed -- --strategy b
 For the **1k-tenant run** (same per-tenant density, ~4 TB compressed):
 
 ```bash
-TENANT_COUNT=1000 bun run seed -- --strategy b
-TENANT_COUNT=1000 bun run seed -- --strategy a
+TENANT_COUNT=1000 bun run seed -- --strategy b && TENANT_COUNT=1000 bun run seed -- --strategy a
 ```
 
 For the **10k-tenant run** (reduced density so Q-time 1h returns ~50 rows, ~3.5 TB compressed):

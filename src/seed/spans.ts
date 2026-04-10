@@ -1,6 +1,6 @@
 import { sql, tenantTable } from '../db.js';
 import { config } from '../config.js';
-import { makeProgressLogger } from './progress.js';
+import { formatDuration } from './progress.js';
 import { randomText, randomJson } from './text.js';
 import type { Strategy, SpanTier } from '../types.js';
 
@@ -136,6 +136,7 @@ async function seedSpansForTenant(
   tenantId: string,
   totalPerTenant: number,
   timeRanges: { historicalStart: number; historicalEnd: number; recentStart: number; recentEnd: number; freshStart: number; freshEnd: number },
+  onBatch?: (n: number) => void,
 ): Promise<void> {
   const tableName = strategy === 'a' ? tenantTable('spans', tenantId) : 'spans';
   const batchSize = config.spanBatchSize;
@@ -167,6 +168,7 @@ async function seedSpansForTenant(
       await retryInsert(() => sql`INSERT INTO ${sql(tableName)} ${sql(rows)}`);
       segInserted += thisBatch;
       totalInserted += thisBatch;
+      onBatch?.(thisBatch);
     }
   }
 }
@@ -191,12 +193,23 @@ export async function seedSpans(
   };
 
   let completed = 0;
-  let skipped = 0;
   let next = 0;
   let inFlight = 0;
-  const logProgress = makeProgressLogger('spans', tenants.length);
+  let totalRows = 0;
+  const startMs = Date.now();
+  const totalRows_target = tenants.length * totalPerTenant;
 
   console.log(`[spans] Seeding ${tenants.length} tenants (${concurrency} concurrent)...`);
+
+  const heartbeat = setInterval(() => {
+    const elapsed = (Date.now() - startMs) / 1000;
+    const rps = elapsed > 0 ? totalRows / elapsed : 0;
+    const eta = rps > 0 ? (totalRows_target - totalRows) / rps : 0;
+    const etaStr = eta > 0 ? ` | eta: ${formatDuration(eta * 1000)}` : '';
+    console.log(
+      `[spans] ${completed}/${tenants.length} tenants | ${totalRows.toLocaleString()} rows | ${rps.toFixed(0)} rows/s | elapsed: ${formatDuration(elapsed * 1000)}${etaStr}`,
+    );
+  }, 30_000);
 
   await new Promise<void>((resolve, reject) => {
     function drain() {
@@ -205,11 +218,8 @@ export async function seedSpans(
         const tenantId = tenants[t];
         inFlight++;
 
-        seedSpansForTenant(strategy, tenantId, totalPerTenant, timeRanges)
-          .then(() => {
-            completed++;
-            logProgress(completed);
-          })
+        seedSpansForTenant(strategy, tenantId, totalPerTenant, timeRanges, (n) => { totalRows += n; })
+          .then(() => { completed++; })
           .catch(reject)
           .finally(() => {
             inFlight--;
@@ -225,5 +235,8 @@ export async function seedSpans(
     if (tenants.length === 0) resolve();
   });
 
-  console.log(`[spans] Complete: ${completed} seeded, ${skipped} already done`);
+  clearInterval(heartbeat);
+  const elapsed = (Date.now() - startMs) / 1000;
+  const rps = elapsed > 0 ? totalRows / elapsed : 0;
+  console.log(`[spans] Complete: ${completed}/${tenants.length} tenants | ${totalRows.toLocaleString()} rows | avg ${rps.toFixed(0)} rows/s | elapsed: ${formatDuration(elapsed * 1000)}`);
 }

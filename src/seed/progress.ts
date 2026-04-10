@@ -1,4 +1,4 @@
-function formatDuration(ms: number): string {
+export function formatDuration(ms: number): string {
   const totalSecs = Math.round(ms / 1000);
   const h = Math.floor(totalSecs / 3600);
   const m = Math.floor((totalSecs % 3600) / 60);
