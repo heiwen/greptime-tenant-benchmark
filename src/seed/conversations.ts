@@ -154,6 +154,7 @@ async function seedItemsForTenant(
           ? itemTimestampForConversation(anchors[convIdx], seg.start, seg.end)
           : randomTimestampInRange(seg.start, seg.end);
         rows.push(generateItemRow(strategy === 'b' ? tenantId : null, tenantConversationId(tenantId, convIdx), timestamp));
+        if (i % 10 === 9) await Bun.sleep(0); // yield so concurrent tasks can interleave
       }
       await retryInsert(() => sql`INSERT INTO ${sql(tableName)} ${sql(rows)}`);
       segInserted += thisBatch;

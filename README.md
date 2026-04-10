@@ -196,7 +196,7 @@ Scale is controlled by env vars (defaults shown):
 | `CONVERSATIONS_PER_TENANT` | `50000` | Distinct conversation IDs per tenant |
 | `SEED_BATCH_SIZE` | `500` | Rows per INSERT for conversation items |
 | `SPAN_BATCH_SIZE` | `100` | Spans per INSERT batch |
-| `SEED_CONCURRENCY` | `50` | Tenants seeded in parallel (keep ≤ db pool size of 100) |
+| `SEED_CONCURRENCY` | `20` | Tenants seeded in parallel. Higher values increase DB write parallelism but also JS CPU contention; 10–20 is the practical sweet spot. |
 | `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant down proportionally for large tenant counts (e.g. `0.2` gives 100k spans/tenant) |
 
 For a **smoke run** to verify everything works before committing to full seeding:

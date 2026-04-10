@@ -164,6 +164,7 @@ async function seedSpansForTenant(
       const rows: Record<string, unknown>[] = [];
       for (let i = 0; i < thisBatch; i++) {
         rows.push(generateSpanRow(strategy === 'b' ? tenantId : null, randomTimestampInRange(seg.start, seg.end)));
+        if (i % 10 === 9) await Bun.sleep(0); // yield so concurrent tasks can interleave
       }
       await retryInsert(() => sql`INSERT INTO ${sql(tableName)} ${sql(rows)}`);
       segInserted += thisBatch;

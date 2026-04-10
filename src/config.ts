@@ -13,7 +13,7 @@ export const config = {
   spanBatchSize: parseInt(process.env.SPAN_BATCH_SIZE ?? '100', 10),
   // How many tenants to seed concurrently. Keep below the db pool size (100).
   // 50 is safe; lower if the cluster shows write pressure during seeding.
-  seedConcurrency: parseInt(process.env.SEED_CONCURRENCY ?? '50', 10),
+  seedConcurrency: parseInt(process.env.SEED_CONCURRENCY ?? '20', 10),
   // Scale data per tenant down proportionally when running large tenant counts.
   // e.g. SPARSE_MULTIPLIER=0.2 gives 100k spans/tenant at 10k tenants.
   sparseMultiplier: parseFloat(process.env.SPARSE_MULTIPLIER ?? '1.0'),
