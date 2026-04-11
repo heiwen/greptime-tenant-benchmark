@@ -1,0 +1,4 @@
+[query]
+# GreptimeDB reads /proc/meminfo (host = 128GB), not the container limit.
+# Set explicitly to what an 8GB-aware auto would compute: 50% × 8GB.
+memory_pool_size = "4GB"

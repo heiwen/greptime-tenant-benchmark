@@ -15,13 +15,13 @@ The docker-compose runs a full GreptimeDB cluster on a single host alongside the
 
 | Component | Instances | vCPU | Memory |
 |---|---|---|---|
-| datanode | 3 | 2 each | 8 GiB each |
-| frontend | 2 | 2 each | 24 GiB each |
+| datanode | 3 | 4 each | 16 GiB each |
+| frontend | 2 | 2 each | 8 GiB each |
 | postgres + metasrv + haproxy | — | ~1 | ~2 GiB |
-| benchmark client (Bun) | — | ~2 | ~2 GiB |
-| **Total** | | **~17 vCPU** | **~54 GiB** |
+| benchmark client (Bun) | — | ~6 | ~2 GiB |
+| **Total** | | **~23 vCPU** | **~68 GiB** |
 
-**Recommended**: `r6i.4xlarge` — 16 vCPU, 128 GiB RAM, EBS gp3 (~$1.01/hr on-demand).
+**Recommended**: `m7i-flex.8xlarge` — 32 vCPU, 128 GiB RAM, EBS gp3 with 16,000 IOPS.
 
 EBS gp3 is intentionally used rather than NVMe instance storage. In production GreptimeDB stores SSTs in object storage (S3), so EBS latency characteristics are a closer approximation of real-world conditions than local NVMe.
 
@@ -34,11 +34,9 @@ EBS gp3 is intentionally used rather than NVMe instance storage. In production G
 | 10k tenants, sparse (0.2×) | 10,000 | 0.2 | ~3 TB | 3500 GB |
 | 1k + 10k back-to-back | — | — | ~19.5 TB | 21000 GB |
 
-Baseline: `1500 GB gp3`. For 1k or 10k runs provision accordingly before launch — EBS volumes can be extended live but only increased, not shrunk.
+Baseline: `1500 GB gp3` with `--iops 16000 --throughput 1000`. For 1k or 10k runs provision accordingly before launch — EBS volumes can be extended live but only increased, not shrunk.
 
-Increase provisioned IOPS/throughput (`--iops`, `--throughput`) if seeding bottlenecks on disk write; gp3 baseline (3000 IOPS / 125 MB/s) is usually sufficient for the 100-tenant run.
-
-Minimum viable (smoke runs only): `r6i.2xlarge` — 8 vCPU, 64 GiB, 200 GB gp3.
+Minimum viable (smoke runs only): `m7i-flex.2xlarge` — 8 vCPU, 32 GiB, 200 GB gp3.
 
 ---
 
@@ -56,10 +54,10 @@ AMI_ID=$(aws ec2 describe-images \
 
 INSTANCE_ID=$(aws ec2 run-instances \
   --image-id $AMI_ID \
-  --instance-type r6i.4xlarge \
+  --instance-type m7i-flex.8xlarge \
   --block-device-mappings '[{
     "DeviceName": "/dev/xvda",
-    "Ebs": {"VolumeSize": 1500, "VolumeType": "gp3", "DeleteOnTermination": true}
+    "Ebs": {"VolumeSize": 1500, "VolumeType": "gp3", "Iops": 16000, "Throughput": 1000, "DeleteOnTermination": true}
   }]' \
   --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=greptimedb-bench}]' \
   --query 'Instances[0].InstanceId' \
@@ -171,7 +169,7 @@ For the baseline 100-tenant run omit the env var (default is 100).
 
 ### Step 3 — Seed data
 
-Full scale on r6i.4xlarge:
+Full scale on m7i-flex.8xlarge:
 
 ```bash
 tmux new -s seed

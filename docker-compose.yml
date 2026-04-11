@@ -3,10 +3,10 @@ x-greptimedb: &greptimedb
 
 x-node-limits: &node-limits
   mem_limit: 16g
-  cpus: "2"
+  cpus: "4"
 
 x-frontend-limits: &frontend-limits
-  mem_limit: 16g
+  mem_limit: 8g
   cpus: "2"
 
 services:
@@ -113,6 +113,9 @@ services:
       - --rpc-bind-addr=0.0.0.0:4001
       - --mysql-addr=0.0.0.0:4002
       - --postgres-addr=0.0.0.0:4003
+      - --config-file=/config/frontend.toml
+    volumes:
+      - ./config/frontend.toml:/config/frontend.toml:ro
     depends_on:
       - datanode0
       - datanode1
@@ -130,6 +133,9 @@ services:
       - --rpc-bind-addr=0.0.0.0:4001
       - --mysql-addr=0.0.0.0:4002
       - --postgres-addr=0.0.0.0:4003
+      - --config-file=/config/frontend.toml
+    volumes:
+      - ./config/frontend.toml:/config/frontend.toml:ro
     depends_on:
       - datanode0
       - datanode1
