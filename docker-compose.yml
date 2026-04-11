@@ -2,11 +2,11 @@ x-greptimedb: &greptimedb
   image: greptime/greptimedb:v1.0.0
 
 x-node-limits: &node-limits
-  mem_limit: 8g
+  mem_limit: 16g
   cpus: "2"
 
 x-frontend-limits: &frontend-limits
-  mem_limit: 24g
+  mem_limit: 16g
   cpus: "2"
 
 services:
@@ -38,6 +38,7 @@ services:
   datanode0:
     <<: [*greptimedb, *node-limits]
     container_name: greptimedb-datanode0
+    restart: unless-stopped
     command:
       - datanode
       - start
@@ -47,16 +48,19 @@ services:
       - --rpc-server-addr=datanode0:3001
       - --metasrv-addrs=metasrv:3002
       - --http-addr=0.0.0.0:5000
+      - --config-file=/config/datanode.toml
     ports:
       - "15000:5000"   # metrics
     volumes:
       - datanode0-data:/greptimedb_data
+      - ./config/datanode.toml:/config/datanode.toml:ro
     depends_on:
       - metasrv
 
   datanode1:
     <<: [*greptimedb, *node-limits]
     container_name: greptimedb-datanode1
+    restart: unless-stopped
     command:
       - datanode
       - start
@@ -66,16 +70,19 @@ services:
       - --rpc-server-addr=datanode1:3001
       - --metasrv-addrs=metasrv:3002
       - --http-addr=0.0.0.0:5000
+      - --config-file=/config/datanode.toml
     ports:
       - "15001:5000"   # metrics
     volumes:
       - datanode1-data:/greptimedb_data
+      - ./config/datanode.toml:/config/datanode.toml:ro
     depends_on:
       - metasrv
 
   datanode2:
     <<: [*greptimedb, *node-limits]
     container_name: greptimedb-datanode2
+    restart: unless-stopped
     command:
       - datanode
       - start
@@ -85,10 +92,12 @@ services:
       - --rpc-server-addr=datanode2:3001
       - --metasrv-addrs=metasrv:3002
       - --http-addr=0.0.0.0:5000
+      - --config-file=/config/datanode.toml
     ports:
       - "15002:5000"   # metrics
     volumes:
       - datanode2-data:/greptimedb_data
+      - ./config/datanode.toml:/config/datanode.toml:ro
     depends_on:
       - metasrv
 

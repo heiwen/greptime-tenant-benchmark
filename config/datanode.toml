@@ -1,0 +1,11 @@
+[[region_engine]]
+
+[region_engine.mito]
+# Trigger memtable flush once in-memory write buffer reaches this size.
+# Set well below mem_limit so flushes happen before OOM pressure.
+# With mem_limit=20g per datanode, 8g gives ~60% headroom for other datanode state.
+global_write_buffer_size = "6g"
+
+# Reject new writes (return 1003) once buffer hits this size.
+# This back-pressures the client instead of OOM-killing the process.
+global_write_buffer_reject_size = "12g"

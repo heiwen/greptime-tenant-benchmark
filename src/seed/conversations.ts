@@ -93,10 +93,21 @@ function itemTimestampForConversation(anchorMs: number, segStart: number, segEnd
 }
 
 async function countItems(strategy: Strategy, tableName: string, tenantId: string): Promise<number> {
-  const result = strategy === 'b'
-    ? await sql`SELECT COUNT(*) as c FROM conversation_items WHERE tenant_id = ${tenantId}`
-    : await sql`SELECT COUNT(*) as c FROM ${sql(tableName)}`;
-  return Number(result[0].c);
+  for (let attempt = 0; attempt <= 4; attempt++) {
+    try {
+      const result = strategy === 'b'
+        ? await sql`SELECT COUNT(*) as c FROM conversation_items WHERE tenant_id = ${tenantId}`
+        : await sql`SELECT COUNT(*) as c FROM ${sql(tableName)}`;
+      return Number(result[0].c);
+    } catch {
+      if (attempt === 4) {
+        // Postgres frontend unreachable under heavy LP load — assume 0 (re-seed this tenant).
+        return 0;
+      }
+      await Bun.sleep(500 * (attempt + 1) + Math.random() * 500);
+    }
+  }
+  return 0;
 }
 
 async function seedItemsForTenant(

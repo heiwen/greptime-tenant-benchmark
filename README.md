@@ -171,11 +171,11 @@ For the baseline 100-tenant run omit the env var (default is 100).
 
 ### Step 3 — Seed data
 
-Full scale on r6i.4xlarge (6 workers × 20 concurrency = 120 DB connections; GreptimeDB's write path is I/O-bound so its ~11 cgroup-capped vCPUs are not the bottleneck):
+Full scale on r6i.4xlarge:
 
 ```bash
 tmux new -s seed
-bun run seed -- --strategy b --workers 6 && bun run seed -- --strategy a --workers 6
+SEED_CONCURRENCY=6 bun run seed -- --strategy b --workers 6 && SEED_CONCURRENCY=6 bun run seed -- --strategy a --workers 6
 ```
 
 Detach so the seed keeps running after you disconnect: `Ctrl+B` then `D`.
@@ -194,12 +194,12 @@ Scale is controlled by env vars (defaults shown):
 | `SPANS_PER_TENANT` | `500000` | Spans per tenant |
 | `ITEMS_PER_TENANT` | `1000000` | Conversation items per tenant |
 | `CONVERSATIONS_PER_TENANT` | `50000` | Distinct conversation IDs per tenant |
-| `SEED_BATCH_SIZE` | `500` | Rows per INSERT for conversation items |
-| `SPAN_BATCH_SIZE` | `100` | Spans per INSERT batch |
-| `SEED_CONCURRENCY` | `20` | Tenants seeded in parallel per worker. 10–20 is the practical sweet spot. |
+| `SEED_BATCH_SIZE` | `500` | Rows per LP batch for conversation items |
+| `SPAN_BATCH_SIZE` | `100` | Spans per LP batch |
+| `SEED_CONCURRENCY` | `20` | Tenants seeded in parallel per worker. Too many concurrent LP writes triggers GreptimeDB internal error 1003 (write-path overload). With 6 workers, start with `SEED_CONCURRENCY=6` and increase until 1003 errors appear. Single-process use the default 20. |
 | `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant down proportionally for large tenant counts (e.g. `0.2` gives 100k spans/tenant) |
 
-Seeding is CPU-bound (row generation) and single-threaded per process. Use `--workers N` to parallelise across CPU cores. Each worker handles an equal slice of tenants with its own DB connection pool (`SEED_CONCURRENCY` connections).
+Seeding is CPU-bound (row generation) and single-threaded per process. Use `--workers N` to parallelise across CPU cores. Each worker handles an equal slice of tenants.
 
 For a **smoke run** to verify everything works before committing to full seeding:
 

@@ -12,8 +12,10 @@ export const config = {
   resultsDir: process.env.RESULTS_DIR ?? './results',
   seedBatchSize: parseInt(process.env.SEED_BATCH_SIZE ?? '500', 10),
   spanBatchSize: parseInt(process.env.SPAN_BATCH_SIZE ?? '100', 10),
-  // How many tenants to seed concurrently. Keep below the db pool size (100).
-  // 50 is safe; lower if the cluster shows write pressure during seeding.
+  // How many tenants to seed in parallel per worker process.
+  // Total concurrent LP writes = workers × seedConcurrency.
+  // Keep total ≤ ~40 to avoid overwhelming GreptimeDB's write path (internal error 1003).
+  // With 6 workers use SEED_CONCURRENCY=6; single-process use 20.
   seedConcurrency: parseInt(process.env.SEED_CONCURRENCY ?? '20', 10),
   // Scale data per tenant down proportionally when running large tenant counts.
   // e.g. SPARSE_MULTIPLIER=0.2 gives 100k spans/tenant at 10k tenants.

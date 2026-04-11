@@ -89,7 +89,6 @@ export async function lpWriteBatch(
   url: string,
   lines: string[],
   retries = 10,
-  delayMs = 15_000,
 ): Promise<void> {
   const body = lines.join('\n');
   for (let i = 0; i < retries; i++) {
@@ -104,8 +103,11 @@ export async function lpWriteBatch(
       throw new Error(`LP write failed ${resp.status}: ${text.slice(0, 300)}`);
     } catch (e) {
       if (i === retries - 1) throw e;
+      // Exponential backoff with jitter: 3s, 6s, 12s, 24s, capped at 30s.
+      // Jitter spreads concurrent retries to avoid synchronized bursts.
+      const delayMs = Math.min(30_000, 3_000 * (1 << i)) + Math.random() * 3_000;
       const msg = e instanceof Error ? e.message.slice(0, 100) : String(e);
-      console.log(`  [retry] LP error: ${msg}, waiting ${delayMs / 1000}s... (${i + 1}/${retries})`);
+      console.log(`  [retry] LP error: ${msg}, waiting ${(delayMs / 1000).toFixed(1)}s... (${i + 1}/${retries})`);
       await new Promise(r => setTimeout(r, delayMs));
     }
   }

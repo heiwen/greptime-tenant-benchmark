@@ -1,69 +1,16 @@
-const VOCABULARY = [
-  'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'it',
-  'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at', 'this',
-  'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she', 'or',
-  'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what',
-  'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me',
-  'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know',
-  'take', 'people', 'into', 'year', 'your', 'good', 'some', 'could',
-  'them', 'see', 'other', 'than', 'then', 'now', 'look', 'only', 'come',
-  'its', 'over', 'think', 'also', 'back', 'after', 'use', 'two', 'how',
-  'our', 'work', 'first', 'well', 'way', 'even', 'new', 'want', 'because',
-  'any', 'these', 'give', 'day', 'most', 'us', 'between', 'need', 'large',
-  'often', 'hand', 'high', 'place', 'hold', 'turn', 'help', 'world',
-  'through', 'example', 'always', 'music', 'those', 'both', 'mark', 'book',
-  'letter', 'until', 'mile', 'river', 'car', 'feet', 'care', 'second',
-  'enough', 'plain', 'girl', 'usual', 'young', 'ready', 'above', 'ever',
-  'red', 'list', 'though', 'feel', 'talk', 'bird', 'soon', 'body',
-  'dog', 'family', 'direct', 'pose', 'leave', 'song', 'measure', 'door',
-  'product', 'black', 'short', 'numeral', 'class', 'wind', 'question',
-  'happen', 'complete', 'ship', 'area', 'half', 'rock', 'order', 'fire',
-  'south', 'problem', 'piece', 'told', 'knew', 'pass', 'since', 'top',
-  'whole', 'king', 'space', 'heard', 'best', 'hour', 'better', 'true',
-  'during', 'hundred', 'five', 'remember', 'step', 'early', 'hold', 'west',
-  'ground', 'interest', 'reach', 'fast', 'verb', 'sing', 'listen', 'six',
-  'table', 'travel', 'less', 'morning', 'ten', 'simple', 'several', 'vowel',
-  'toward', 'war', 'lay', 'against', 'pattern', 'slow', 'center', 'love',
-  'person', 'money', 'serve', 'appear', 'road', 'map', 'rain', 'rule',
-  'govern', 'pull', 'cold', 'notice', 'voice', 'power', 'town', 'fine',
-  'drive', 'print', 'set', 'fall', 'surprise', 'industry', 'plain',
-  'system', 'behind', 'ran', 'round', 'boat', 'game', 'force', 'bring',
-];
-
-const PUNCTUATION = ['.', '.', '.', ',', ',', '!', '?', ';'];
-
-function randomWord(): string {
-  return VOCABULARY[Math.floor(Math.random() * VOCABULARY.length)];
-}
-
+// Generate random printable ASCII text of exactly targetBytes length.
+// Uses crypto.getRandomValues on a TypedArray + TextDecoder for fast bulk generation.
+// Content is random a-z + space — suitable for any string field in the benchmark.
 export function randomText(targetBytes: number): string {
-  const words: string[] = [];
-  let currentBytes = 0;
-  let wordsSincePunct = 0;
-
-  while (currentBytes < targetBytes) {
-    const word = randomWord();
-    words.push(word);
-    currentBytes += word.length + 1; // +1 for space
-    wordsSincePunct++;
-
-    // Add punctuation every 8-15 words
-    if (wordsSincePunct >= 8 + Math.floor(Math.random() * 8)) {
-      const punct = PUNCTUATION[Math.floor(Math.random() * PUNCTUATION.length)];
-      words[words.length - 1] += punct;
-      wordsSincePunct = 0;
-
-      // Capitalize next word
-      if (currentBytes < targetBytes) {
-        const nextWord = randomWord();
-        words.push(nextWord.charAt(0).toUpperCase() + nextWord.slice(1));
-        currentBytes += nextWord.length + 1;
-        wordsSincePunct++;
-      }
-    }
+  const buf = new Uint8Array(targetBytes);
+  crypto.getRandomValues(buf);
+  // Map each byte to one of 32 chars (a-z + 6 spaces) via power-of-two mask.
+  const CHARS = 'abcdefghijklmnopqrstuvwxyz      '; // 26 letters + 6 spaces = 32 chars
+  const out = new Uint8Array(targetBytes);
+  for (let i = 0; i < targetBytes; i++) {
+    out[i] = CHARS.charCodeAt(buf[i] & 31);
   }
-
-  return words.join(' ').slice(0, targetBytes);
+  return new TextDecoder().decode(out);
 }
 
 export function randomJson(targetBytes: number): string {
@@ -93,10 +40,10 @@ export function randomJson(targetBytes: number): string {
     if (remaining > 100 && Math.random() < 0.3) {
       // Nested object
       const nested: Record<string, unknown> = {
-        value: randomWord(),
+        value: randomText(8),
         count: Math.floor(Math.random() * 1000),
         enabled: Math.random() > 0.5,
-        label: randomWord() + ' ' + randomWord(),
+        label: randomText(12),
       };
       valueStr = JSON.stringify(nested);
       value = nested;
