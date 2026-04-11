@@ -16,10 +16,10 @@ The docker-compose runs a full GreptimeDB cluster on a single host alongside the
 | Component | Instances | vCPU | Memory |
 |---|---|---|---|
 | datanode | 3 | 4 each | 16 GiB each |
-| frontend | 2 | 2 each | 8 GiB each |
+| frontend | 2 | 4 each | 8 GiB each |
 | postgres + metasrv + haproxy | — | ~1 | ~2 GiB |
 | benchmark client (Bun) | — | ~6 | ~2 GiB |
-| **Total** | | **~23 vCPU** | **~68 GiB** |
+| **Total** | | **~27 vCPU** | **~68 GiB** |
 
 **Recommended**: `m7i-flex.8xlarge` — 32 vCPU, 128 GiB RAM, EBS gp3 with 16,000 IOPS.
 
@@ -34,7 +34,7 @@ EBS gp3 is intentionally used rather than NVMe instance storage. In production G
 | 10k tenants, sparse (0.2×) | 10,000 | 0.2 | ~3 TB | 3500 GB |
 | 1k + 10k back-to-back | — | — | ~19.5 TB | 21000 GB |
 
-Baseline: `1500 GB gp3` with `--iops 16000 --throughput 1000`. For 1k or 10k runs provision accordingly before launch — EBS volumes can be extended live but only increased, not shrunk.
+Launch command provisions `16384 GB gp3` (16 TiB max) with `--iops 16000 --throughput 1000`. Covers all individual runs in the table; the 1k+10k back-to-back run (21 TB) would require a larger setup.
 
 Minimum viable (smoke runs only): `m7i-flex.2xlarge` — 8 vCPU, 32 GiB, 200 GB gp3.
 
@@ -57,7 +57,7 @@ INSTANCE_ID=$(aws ec2 run-instances \
   --instance-type m7i-flex.8xlarge \
   --block-device-mappings '[{
     "DeviceName": "/dev/xvda",
-    "Ebs": {"VolumeSize": 1500, "VolumeType": "gp3", "Iops": 16000, "Throughput": 1000, "DeleteOnTermination": true}
+    "Ebs": {"VolumeSize": 16384, "VolumeType": "gp3", "Iops": 16000, "Throughput": 1000, "DeleteOnTermination": true}
   }]' \
   --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=greptimedb-bench}]' \
   --query 'Instances[0].InstanceId' \
@@ -173,7 +173,7 @@ Full scale on m7i-flex.8xlarge:
 
 ```bash
 tmux new -s seed
-SEED_CONCURRENCY=6 bun run seed -- --strategy b --workers 6 && SEED_CONCURRENCY=6 bun run seed -- --strategy a --workers 6
+bun run seed -- --strategy b --workers 12 && bun run seed -- --strategy a --workers 12
 ```
 
 Detach so the seed keeps running after you disconnect: `Ctrl+B` then `D`.
@@ -194,10 +194,10 @@ Scale is controlled by env vars (defaults shown):
 | `CONVERSATIONS_PER_TENANT` | `50000` | Distinct conversation IDs per tenant |
 | `SEED_BATCH_SIZE` | `500` | Rows per LP batch for conversation items |
 | `SPAN_BATCH_SIZE` | `100` | Spans per LP batch |
-| `SEED_CONCURRENCY` | `20` | Tenants seeded in parallel per worker. Too many concurrent LP writes triggers GreptimeDB internal error 1003 (write-path overload). With 6 workers, start with `SEED_CONCURRENCY=6` and increase until 1003 errors appear. Single-process use the default 20. |
+| `SEED_CONCURRENCY` | `1` | Tenants seeded in parallel per worker. Row generation is CPU-bound and dominates over async HTTP latency (localhost). Scale throughput via `--workers` instead; raise workers until GreptimeDB returns error 1003, then back off by 2. |
 | `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant down proportionally for large tenant counts (e.g. `0.2` gives 100k spans/tenant) |
 
-Seeding is CPU-bound (row generation) and single-threaded per process. Use `--workers N` to parallelise across CPU cores. Each worker handles an equal slice of tenants.
+Seeding is CPU-bound (row generation) and single-threaded per process. Use `--workers N` to parallelise across CPU cores. Each worker handles an equal slice of tenants. Start with `--workers 12` and raise until GreptimeDB returns error 1003, then back off by 2.
 
 For a **smoke run** to verify everything works before committing to full seeding:
 
@@ -214,14 +214,14 @@ bun run seed -- --strategy b
 For the **1k-tenant run** (same per-tenant density, ~4 TB compressed):
 
 ```bash
-TENANT_COUNT=1000 bun run seed -- --strategy b --workers 6 && TENANT_COUNT=1000 bun run seed -- --strategy a --workers 6
+TENANT_COUNT=1000 bun run seed -- --strategy b --workers 12 && TENANT_COUNT=1000 bun run seed -- --strategy a --workers 12
 ```
 
 For the **10k-tenant run** (reduced density so Q-time 1h returns ~50 rows, ~3.5 TB compressed):
 
 ```bash
-TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy b --workers 6
-TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy a --workers 6
+TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy b --workers 12
+TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy a --workers 12
 ```
 
 ### Step 4 — Run the benchmark
@@ -404,7 +404,7 @@ Note: the public IP changes after a stop/start. Re-run the `describe-instances` 
 | `SPANS_PER_TENANT` | `500000` | |
 | `ITEMS_PER_TENANT` | `1000000` | |
 | `CONVERSATIONS_PER_TENANT` | `50000` | |
-| `SEED_CONCURRENCY` | `50` | Tenants seeded in parallel |
+| `SEED_CONCURRENCY` | `1` | Tenants seeded in parallel per worker (see seed guidance above) |
 | `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant proportionally |
 | `CONV_PK` | `false` | Add `conversation_id` to the PRIMARY KEY of `conversation_items` tables. See [CONV_PK comparison](#conv_pk-comparison) below. |
 | `RESULTS_DIR` | `./results` | Output directory for CSVs |

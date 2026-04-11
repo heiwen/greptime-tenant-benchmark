@@ -7,7 +7,7 @@ x-node-limits: &node-limits
 
 x-frontend-limits: &frontend-limits
   mem_limit: 8g
-  cpus: "2"
+  cpus: "4"
 
 services:
   postgres:
