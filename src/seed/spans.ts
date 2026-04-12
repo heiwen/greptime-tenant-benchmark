@@ -143,17 +143,24 @@ async function seedSpansForTenant(
   const batchSize = config.spanBatchSize;
 
   const existing = await countSpans(strategy, tableName, tenantId);
-  if (existing >= totalPerTenant) {
+  const { historicalStart, historicalEnd, recentStart, recentEnd, freshStart, freshEnd } = timeRanges;
+
+  const hs = config.historicalShare;
+  const totalShare = hs + 0.15 + 0.10;
+  const effectiveTotal = Math.round(totalPerTenant * totalShare);
+
+  if (existing >= effectiveTotal) {
     return;
   }
 
-  const toInsert = totalPerTenant - existing;
-  const { historicalStart, historicalEnd, recentStart, recentEnd, freshStart, freshEnd } = timeRanges;
+  const toInsert = effectiveTotal - existing;
 
+  const hCount = Math.floor(toInsert * hs / totalShare);
+  const rCount = Math.floor(toInsert * 0.15 / totalShare);
   const segments = [
-    { count: Math.floor(toInsert * 0.75), start: historicalStart, end: historicalEnd },
-    { count: Math.floor(toInsert * 0.15), start: recentStart,     end: recentEnd },
-    { count: toInsert - Math.floor(toInsert * 0.75) - Math.floor(toInsert * 0.15), start: freshStart, end: freshEnd },
+    { count: hCount,                     start: historicalStart, end: historicalEnd },
+    { count: rCount,                     start: recentStart,     end: recentEnd },
+    { count: toInsert - hCount - rCount, start: freshStart,      end: freshEnd },
   ];
 
   let totalInserted = existing;

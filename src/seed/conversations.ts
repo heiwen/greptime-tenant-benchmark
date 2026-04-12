@@ -61,10 +61,12 @@ function sessionPad(segStart: number, segEnd: number): number {
 function buildConversationAnchors(
   conversationsPerTenant: number,
   timeRanges: { historicalStart: number; historicalEnd: number; recentStart: number; recentEnd: number; freshStart: number; freshEnd: number },
+  historicalShare: number,
 ): Float64Array {
   const { historicalStart, historicalEnd, recentStart, recentEnd, freshStart, freshEnd } = timeRanges;
-  const historicalCount = Math.floor(conversationsPerTenant * 0.75);
-  const recentCount     = Math.floor(conversationsPerTenant * 0.15);
+  const totalShare = historicalShare + 0.15 + 0.10;
+  const historicalCount = Math.floor(conversationsPerTenant * historicalShare / totalShare);
+  const recentCount     = Math.floor(conversationsPerTenant * 0.15 / totalShare);
 
   const anchors = new Float64Array(conversationsPerTenant);
   const segments = [
@@ -123,24 +125,32 @@ async function seedItemsForTenant(
   const batchSize = config.seedBatchSize;
 
   const existing = await countItems(strategy, tableName, tenantId);
-  if (existing >= totalPerTenant) {
+  const { historicalStart, historicalEnd, recentStart, recentEnd, freshStart, freshEnd } = timeRanges;
+
+  const hs = config.historicalShare;
+  const totalShare = hs + 0.15 + 0.10;
+  const effectiveTotal = Math.round(totalPerTenant * totalShare);
+
+  if (existing >= effectiveTotal) {
     return;
   }
 
-  const toInsert = totalPerTenant - existing;
-  const { historicalStart, historicalEnd, recentStart, recentEnd, freshStart, freshEnd } = timeRanges;
+  const toInsert = effectiveTotal - existing;
 
   // Clustered conversations (index < half) all have historical anchors because
-  // half = floor(N/2) < floor(N*0.75) = historicalCount. Assigning clustered conversations
-  // to non-historical segments would clamp their items to the segment boundary instead of
-  // the anchor neighbourhood, breaking the clustering guarantee. Only the historical segment
-  // uses the clustered pool; recent and fresh segments use scattered only.
-  const anchors = buildConversationAnchors(conversationsPerTenant, timeRanges);
+  // half = floor(N/2) < floor(N*historicalShare/totalShare) = historicalCount.
+  // Assigning clustered conversations to non-historical segments would clamp their
+  // items to the segment boundary instead of the anchor neighbourhood, breaking the
+  // clustering guarantee. Only the historical segment uses the clustered pool;
+  // recent and fresh segments use scattered only.
+  const anchors = buildConversationAnchors(conversationsPerTenant, timeRanges, hs);
 
+  const hCount = Math.floor(toInsert * hs / totalShare);
+  const rCount = Math.floor(toInsert * 0.15 / totalShare);
   const segments = [
-    { count: Math.floor(toInsert * 0.75), start: historicalStart, end: historicalEnd, clusteredOk: true  },
-    { count: Math.floor(toInsert * 0.15), start: recentStart,     end: recentEnd,     clusteredOk: false },
-    { count: toInsert - Math.floor(toInsert * 0.75) - Math.floor(toInsert * 0.15), start: freshStart, end: freshEnd, clusteredOk: false },
+    { count: hCount,                     start: historicalStart, end: historicalEnd, clusteredOk: true  },
+    { count: rCount,                     start: recentStart,     end: recentEnd,     clusteredOk: false },
+    { count: toInsert - hCount - rCount, start: freshStart,      end: freshEnd,      clusteredOk: false },
   ];
 
   for (const seg of segments) {

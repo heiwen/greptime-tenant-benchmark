@@ -20,6 +20,11 @@ export const config = {
   // Scale data per tenant down proportionally when running large tenant counts.
   // e.g. SPARSE_MULTIPLIER=0.2 gives 100k spans/tenant at 10k tenants.
   sparseMultiplier: parseFloat(process.env.SPARSE_MULTIPLIER ?? '1.0'),
+  // Fraction of per-tenant rows to seed as historical (>4 months old).
+  // Recent (15%) and fresh (10%) shares are fixed; reducing this below 0.75
+  // shrinks total seeded rows proportionally without touching the hot data.
+  // e.g. HISTORICAL_SHARE=0.65 seeds 90% of the target rows per tenant.
+  historicalShare: parseFloat(process.env.HISTORICAL_SHARE ?? '0.65'),
   // Add conversation_id to the PRIMARY KEY of conversation_items tables.
   // Physically co-locates items per conversation in SST files, making q-conv-scattered fast
   // at the cost of higher series cardinality (50k series/tenant vs 1).
