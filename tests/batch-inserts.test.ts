@@ -168,7 +168,7 @@ describe('batch insert patterns', () => {
       SELECT span_id, span_status_message, gen_ai_system
       FROM ${sql(TABLE)}
       WHERE service_name = ${'varied-' + marker}
-      ORDER BY "timestamp" DESC
+      ORDER BY ${sql('timestamp')} DESC
     `;
 
     expect(results.length).toBe(4);

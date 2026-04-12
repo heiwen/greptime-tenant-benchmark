@@ -31,7 +31,7 @@ describe('IS NULL / IS NOT NULL', () => {
       SELECT gen_ai_system FROM ${sql(TABLE)}
       WHERE service_name = ${'pred-' + MARKER}
         AND parent_span_id IS NULL
-      ORDER BY "timestamp"
+      ORDER BY ${sql('timestamp')}
     `;
     const systems = rows.map((r: Record<string, unknown>) => r.gen_ai_system);
     expect(systems).toEqual(['openai', 'anthropic']);
@@ -42,7 +42,7 @@ describe('IS NULL / IS NOT NULL', () => {
       SELECT gen_ai_system FROM ${sql(TABLE)}
       WHERE service_name = ${'pred-' + MARKER}
         AND parent_span_id IS NOT NULL
-      ORDER BY "timestamp"
+      ORDER BY ${sql('timestamp')}
     `;
     const systems = rows.map((r: Record<string, unknown>) => r.gen_ai_system);
     expect(systems).toEqual(['google', 'cohere', 'mistral']);
@@ -53,7 +53,7 @@ describe('IS NULL / IS NOT NULL', () => {
       SELECT gen_ai_system FROM ${sql(TABLE)}
       WHERE service_name = ${'pred-' + MARKER}
         AND gen_ai_input_tokens IS NULL
-      ORDER BY "timestamp"
+      ORDER BY ${sql('timestamp')}
     `;
     const systems = rows.map((r: Record<string, unknown>) => r.gen_ai_system);
     expect(systems).toEqual(['cohere', 'mistral']);
@@ -66,7 +66,7 @@ describe('IN / NOT IN', () => {
       SELECT gen_ai_system FROM ${sql(TABLE)}
       WHERE service_name = ${'pred-' + MARKER}
         AND gen_ai_system IN ('openai', 'anthropic')
-      ORDER BY "timestamp"
+      ORDER BY ${sql('timestamp')}
     `;
     expect(rows.length).toBe(2);
     const systems = rows.map((r: Record<string, unknown>) => r.gen_ai_system);
@@ -79,7 +79,7 @@ describe('IN / NOT IN', () => {
       SELECT gen_ai_system FROM ${sql(TABLE)}
       WHERE service_name = ${'pred-' + MARKER}
         AND gen_ai_system NOT IN ('openai', 'anthropic')
-      ORDER BY "timestamp"
+      ORDER BY ${sql('timestamp')}
     `;
     const systems = rows.map((r: Record<string, unknown>) => r.gen_ai_system);
     expect(systems).not.toContain('openai');
@@ -115,7 +115,7 @@ describe('BETWEEN', () => {
     const result = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
       WHERE service_name = ${'btw-' + marker2}
-        AND "timestamp" BETWEEN ${t1.toISOString()} AND ${t2.toISOString()}
+        AND ${sql('timestamp')} BETWEEN ${t1.toISOString()} AND ${t2.toISOString()}
     `;
     expect(Number(result[0].c)).toBe(3);
   });
@@ -125,7 +125,7 @@ describe('BETWEEN', () => {
       SELECT gen_ai_system FROM ${sql(TABLE)}
       WHERE service_name = ${'pred-' + MARKER}
         AND gen_ai_input_tokens BETWEEN 100 AND 200
-      ORDER BY "timestamp"
+      ORDER BY ${sql('timestamp')}
     `;
     const systems = rows.map((r: Record<string, unknown>) => r.gen_ai_system);
     expect(systems).toContain('openai');
@@ -190,7 +190,7 @@ describe('CASE expression', () => {
         END AS size_label
       FROM ${sql(TABLE)}
       WHERE service_name = ${'pred-' + MARKER}
-      ORDER BY "timestamp"
+      ORDER BY ${sql('timestamp')}
     `;
 
     const map = Object.fromEntries(rows.map((r: Record<string, unknown>) => [r.gen_ai_system, r.size_label]));

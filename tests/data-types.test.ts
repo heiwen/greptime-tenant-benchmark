@@ -1,13 +1,9 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { SQL } from 'bun';
-import { createSpansTable, createItemsTable, dropTable, spanRow, itemRow, uniqueSuffix } from './helpers.ts';
+import { createSpansTable, createItemsTable, dropTable, spanRow, itemRow, uniqueSuffix, makePool } from './helpers.ts';
 
 // Use a dedicated pool so that ERR_POSTGRES_UNSUPPORTED_NUMERIC_FORMAT connection closures
 // do not corrupt the shared helpers.ts pool used by other test files.
-const sql = new SQL(
-  process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
-  { max: 3, idleTimeout: 30, connectionTimeout: 15, ssl: false, prepare: false },
-);
+const sql = makePool({ max: 3, idleTimeout: 30, connectionTimeout: 15 });
 
 const SPANS = `test_spans_${uniqueSuffix()}`;
 const ITEMS = `test_items_${uniqueSuffix()}`;
@@ -28,7 +24,7 @@ describe('TIMESTAMP(9) precision', () => {
     const row = spanRow({ timestamp: t });
     await sql`INSERT INTO ${sql(SPANS)} ${sql([row])}`;
 
-    const [r] = await sql`SELECT "timestamp" FROM ${sql(SPANS)} WHERE span_id = ${row.span_id as string}`;
+    const [r] = await sql`SELECT ${sql('timestamp')} FROM ${sql(SPANS)} WHERE span_id = ${row.span_id as string}`;
     const returned = new Date(r.timestamp as string | Date);
     expect(returned.getTime()).toBe(t.getTime());
   });
@@ -39,7 +35,7 @@ describe('TIMESTAMP(9) precision', () => {
     const row = spanRow({ timestamp: nanoStr });
     await sql`INSERT INTO ${sql(SPANS)} ${sql([row])}`;
 
-    const [r] = await sql`SELECT "timestamp" FROM ${sql(SPANS)} WHERE span_id = ${row.span_id as string}`;
+    const [r] = await sql`SELECT ${sql('timestamp')} FROM ${sql(SPANS)} WHERE span_id = ${row.span_id as string}`;
     // Document what precision is actually stored
     expect(r.timestamp).toBeDefined();
     // At minimum milliseconds must be preserved
@@ -52,7 +48,7 @@ describe('TIMESTAMP(9) precision', () => {
     const row = spanRow({ timestamp: t });
     await sql`INSERT INTO ${sql(SPANS)} ${sql([row])}`;
 
-    const [r] = await sql`SELECT "timestamp" FROM ${sql(SPANS)} WHERE span_id = ${row.span_id as string}`;
+    const [r] = await sql`SELECT ${sql('timestamp')} FROM ${sql(SPANS)} WHERE span_id = ${row.span_id as string}`;
     const returned = new Date(r.timestamp as string | Date);
     expect(returned.getTime()).toBe(t.getTime());
   });
@@ -62,7 +58,7 @@ describe('TIMESTAMP(9) precision', () => {
     const row = spanRow({ timestamp: t });
     await sql`INSERT INTO ${sql(SPANS)} ${sql([row])}`;
 
-    const [r] = await sql`SELECT "timestamp" FROM ${sql(SPANS)} WHERE span_id = ${row.span_id as string}`;
+    const [r] = await sql`SELECT ${sql('timestamp')} FROM ${sql(SPANS)} WHERE span_id = ${row.span_id as string}`;
     const returned = new Date(r.timestamp as string | Date);
     // Allow 1s drift for any processing
     expect(Math.abs(returned.getTime() - t.getTime())).toBeLessThan(1_000);
@@ -75,7 +71,7 @@ describe('TIMESTAMP(3) precision (conversation items)', () => {
     const row = itemRow({ created_at: t });
     await sql`INSERT INTO ${sql(ITEMS)} ${sql([row])}`;
 
-    const [r] = await sql`SELECT created_at FROM ${sql(ITEMS)} WHERE "id" = ${row.id as string}`;
+    const [r] = await sql`SELECT created_at FROM ${sql(ITEMS)} WHERE ${sql('id')} = ${row.id as string}`;
     const returned = new Date(r.created_at as string | Date);
     expect(returned.getTime()).toBe(t.getTime());
   });

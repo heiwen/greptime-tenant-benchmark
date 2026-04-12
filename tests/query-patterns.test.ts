@@ -1,13 +1,9 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { SQL } from 'bun';
-import { createSpansTable, dropTable, spanRow, uniqueSuffix, randomHex, ts } from './helpers.ts';
+import { createSpansTable, dropTable, spanRow, uniqueSuffix, randomHex, ts, makePool } from './helpers.ts';
 
 // Own pool: SELECT * on spans table triggers ERR_POSTGRES_UNSUPPORTED_NUMERIC_FORMAT.
 // Isolated to avoid corrupting the shared pool used by parallel test files.
-const sql = new SQL(
-  process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
-  { max: 5, idleTimeout: 30, connectionTimeout: 15, ssl: false, prepare: false },
-);
+const sql = makePool({ max: 5, idleTimeout: 30, connectionTimeout: 15 });
 
 const TABLE = `test_spans_${uniqueSuffix()}`;
 
@@ -33,7 +29,7 @@ describe('time range queries', () => {
     const rows = await sql`
       SELECT span_id FROM ${sql(TABLE)}
       WHERE service_name = ${'excl-' + marker}
-        AND "timestamp" > ${cutoff.toISOString()}
+        AND ${sql('timestamp')} > ${cutoff.toISOString()}
     `;
 
     const ids = rows.map((r: Record<string, unknown>) => r.span_id);
@@ -50,7 +46,7 @@ describe('time range queries', () => {
     const rows = await sql`
       SELECT span_id FROM ${sql(TABLE)}
       WHERE service_name = ${'empty-' + marker}
-        AND "timestamp" > ${future}
+        AND ${sql('timestamp')} > ${future}
     `;
     expect(rows.length).toBe(0);
   });
@@ -97,9 +93,9 @@ describe('ORDER BY', () => {
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
-      SELECT "timestamp" FROM ${sql(TABLE)}
+      SELECT ${sql('timestamp')} FROM ${sql(TABLE)}
       WHERE service_name = ${'order-' + marker}
-      ORDER BY "timestamp" DESC
+      ORDER BY ${sql('timestamp')} DESC
     `;
 
     const times = result.map((r: Record<string, unknown>) => new Date(r.timestamp as string | Date).getTime());
@@ -117,9 +113,9 @@ describe('ORDER BY', () => {
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
-      SELECT "timestamp" FROM ${sql(TABLE)}
+      SELECT ${sql('timestamp')} FROM ${sql(TABLE)}
       WHERE service_name = ${'asc-' + marker}
-      ORDER BY "timestamp" ASC
+      ORDER BY ${sql('timestamp')} ASC
     `;
 
     const times = result.map((r: Record<string, unknown>) => new Date(r.timestamp as string | Date).getTime());
@@ -140,7 +136,7 @@ describe('ORDER BY', () => {
     const result = await sql`
       SELECT span_id FROM ${sql(TABLE)}
       WHERE service_name = ${'2col-' + marker}
-      ORDER BY "timestamp" DESC, span_id ASC
+      ORDER BY ${sql('timestamp')} DESC, span_id ASC
     `;
 
     // The two rows at sharedTs should come first, ordered span_id ASC
@@ -166,12 +162,12 @@ describe('ORDER BY', () => {
     const run1 = await sql`
       SELECT span_id FROM ${sql(TABLE)}
       WHERE service_name = ${'tied-' + marker}
-      ORDER BY "timestamp" DESC, span_id DESC
+      ORDER BY ${sql('timestamp')} DESC, span_id DESC
     `;
     const run2 = await sql`
       SELECT span_id FROM ${sql(TABLE)}
       WHERE service_name = ${'tied-' + marker}
-      ORDER BY "timestamp" DESC, span_id DESC
+      ORDER BY ${sql('timestamp')} DESC, span_id DESC
     `;
 
     const ids1 = run1.map((r: Record<string, unknown>) => r.span_id);
@@ -199,17 +195,17 @@ describe('cursor pagination', () => {
 
       if (lastTs === null) {
         page = await sql`
-          SELECT span_id, "timestamp" FROM ${sql(TABLE)}
+          SELECT span_id, ${sql('timestamp')} FROM ${sql(TABLE)}
           WHERE service_name = ${'page-' + marker}
-          ORDER BY "timestamp" DESC, span_id DESC
+          ORDER BY ${sql('timestamp')} DESC, span_id DESC
           LIMIT 50
         `;
       } else {
         page = await sql`
-          SELECT span_id, "timestamp" FROM ${sql(TABLE)}
+          SELECT span_id, ${sql('timestamp')} FROM ${sql(TABLE)}
           WHERE service_name = ${'page-' + marker}
-            AND ("timestamp" < ${lastTs} OR ("timestamp" = ${lastTs} AND span_id < ${lastId!}))
-          ORDER BY "timestamp" DESC, span_id DESC
+            AND (${sql('timestamp')} < ${lastTs} OR (${sql('timestamp')} = ${lastTs} AND span_id < ${lastId!}))
+          ORDER BY ${sql('timestamp')} DESC, span_id DESC
           LIMIT 50
         `;
       }

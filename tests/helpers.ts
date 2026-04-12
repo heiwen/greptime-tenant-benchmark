@@ -1,11 +1,54 @@
 import { SQL } from 'bun';
 
+export const GREPTIMEDB_URL = process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public';
+const IS_MYSQL  = GREPTIMEDB_URL.startsWith('mysql://');
+export const IS_SQLITE = GREPTIMEDB_URL.startsWith('sqlite://');
+
+// SQLite: use a per-worker-process file so ALL pools in the same worker share one
+// database. Each bun test worker is a separate process (distinct pid), so workers
+// stay isolated from each other while pools within one worker all see the same tables.
+const EFFECTIVE_URL = IS_SQLITE
+  ? `sqlite:///tmp/bun-test-sqlite-${process.pid}.db`
+  : GREPTIMEDB_URL;
+
+/**
+ * Create a Bun.SQL pool with the correct base options for the active adapter.
+ * `prepare: false` is a Postgres-only workaround for the Bun.SQL prepared-statement
+ * cache OOM bug — the MySQL adapter rejects the option at connection time.
+ */
+export function makePool(opts: { max: number; idleTimeout: number; connectionTimeout: number }): SQL {
+  if (IS_SQLITE) return new SQL(EFFECTIVE_URL, { max: opts.max });
+  return new SQL(EFFECTIVE_URL, {
+    ...opts,
+    ssl: false,
+    ...(IS_MYSQL ? {} : { prepare: false }),
+  });
+}
+
+/**
+ * Rewrite GreptimeDB-specific DDL into SQLite-compatible DDL.
+ * Called automatically by createSpansTable et al. when IS_SQLITE is true.
+ */
+export function sqliteAdapt(ddl: string): string {
+  return ddl
+    // TIMESTAMP(n) NOT NULL TIME INDEX  →  DATETIME NOT NULL
+    .replace(/TIMESTAMP\(\d+\)\s+NOT NULL\s+TIME INDEX/g, 'DATETIME NOT NULL')
+    // TIMESTAMP(n) elsewhere
+    .replace(/TIMESTAMP\(\d+\)/g, 'DATETIME')
+    // GreptimeDB-specific column type extensions
+    .replace(/\bBIGINT UNSIGNED\b/g, 'INTEGER')
+    .replace(/\bSTRING\b/g, 'TEXT')
+    // GreptimeDB index annotations (column-level)
+    .replace(/\s+INVERTED INDEX\b/g, '')
+    .replace(/\s+SKIPPING INDEX\s+WITH\s*\([^)]*\)/g, '')
+    // Table-level options
+    .replace(/\)\s*WITH\s*\(\s*'append_mode'\s*=\s*'true'\s*\)/g, ')')
+    .trimEnd();
+}
+
 // NOTE: Bun test shares module state across parallel workers, so this pool is
 // used concurrently by all 12 test files. Size it to handle that load.
-export const sql = new SQL(
-  process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
-  { max: 20, idleTimeout: 30, connectionTimeout: 15, ssl: false, prepare: false },
-);
+export const sql = makePool({ max: 20, idleTimeout: 30, connectionTimeout: 15 });
 
 // ── Naming ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +71,17 @@ export function ts(offsetSec: number = 0): Date {
 // ── DDL ───────────────────────────────────────────────────────────────────────
 
 /**
+ * Quote a column name for the active SQL dialect.
+ * MySQL requires backtick-quoting for reserved words (e.g. `timestamp`, `id`).
+ * PostgreSQL and SQLite use double-quotes.
+ * Use this only in `sql.unsafe()` DDL strings; in tagged template literals use
+ * `${sql('column')}` instead, which Bun.SQL quotes automatically per dialect.
+ */
+function col(name: string): string {
+  return IS_MYSQL ? `\`${name}\`` : `"${name}"`;
+}
+
+/**
  * Retry wrapper for DDL operations that may briefly fail during parallel test
  * startup due to transient connection disruptions from concurrent test files.
  */
@@ -46,9 +100,9 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 200): 
 
 /** Standard spans table, no indexes. PRIMARY KEY (span_id). */
 export async function createSpansTable(name: string): Promise<void> {
-  await withRetry(() => sql.unsafe(`
+  const ddl = `
     CREATE TABLE IF NOT EXISTS ${name} (
-      "timestamp"          TIMESTAMP(9) NOT NULL TIME INDEX,
+      ${col('timestamp')}    TIMESTAMP(9) NOT NULL TIME INDEX,
       timestamp_end        TIMESTAMP(9),
       duration_nano        BIGINT UNSIGNED,
       trace_id             VARCHAR(32) NOT NULL,
@@ -69,14 +123,15 @@ export async function createSpansTable(name: string): Promise<void> {
       span_attributes      STRING,
       PRIMARY KEY (span_id)
     ) WITH ('append_mode' = 'true')
-  `));
+  `;
+  await withRetry(() => sql.unsafe(IS_SQLITE ? sqliteAdapt(ddl) : ddl));
 }
 
 /** Spans table with INVERTED INDEX on span_name and BLOOM SKIPPING INDEX on trace_id. */
 export async function createIndexedSpansTable(name: string): Promise<void> {
-  await withRetry(() => sql.unsafe(`
+  const ddl = `
     CREATE TABLE IF NOT EXISTS ${name} (
-      "timestamp"         TIMESTAMP(9) NOT NULL TIME INDEX,
+      ${col('timestamp')}    TIMESTAMP(9) NOT NULL TIME INDEX,
       trace_id            VARCHAR(32) NOT NULL SKIPPING INDEX WITH(type='BLOOM', granularity=1024),
       span_id             VARCHAR(16) NOT NULL,
       span_name           VARCHAR(256) INVERTED INDEX,
@@ -85,15 +140,16 @@ export async function createIndexedSpansTable(name: string): Promise<void> {
       gen_ai_input_tokens INT,
       PRIMARY KEY (span_id)
     ) WITH ('append_mode' = 'true')
-  `));
+  `;
+  await withRetry(() => sql.unsafe(IS_SQLITE ? sqliteAdapt(ddl) : ddl));
 }
 
 /** Shared spans table for multi-tenant tests (Strategy B). */
 export async function createSharedSpansTable(name: string): Promise<void> {
-  await withRetry(() => sql.unsafe(`
+  const ddl = `
     CREATE TABLE IF NOT EXISTS ${name} (
       tenant_id           VARCHAR(36) NOT NULL,
-      "timestamp"         TIMESTAMP(9) NOT NULL TIME INDEX,
+      ${col('timestamp')}  TIMESTAMP(9) NOT NULL TIME INDEX,
       trace_id            VARCHAR(32) NOT NULL,
       span_id             VARCHAR(16) NOT NULL,
       service_name        STRING,
@@ -101,21 +157,23 @@ export async function createSharedSpansTable(name: string): Promise<void> {
       gen_ai_input_tokens INT,
       PRIMARY KEY (tenant_id, span_id)
     ) WITH ('append_mode' = 'true')
-  `));
+  `;
+  await withRetry(() => sql.unsafe(IS_SQLITE ? sqliteAdapt(ddl) : ddl));
 }
 
 /** Conversation items table. */
 export async function createItemsTable(name: string): Promise<void> {
-  await withRetry(() => sql.unsafe(`
+  const ddl = `
     CREATE TABLE IF NOT EXISTS ${name} (
-      "id"            VARCHAR(36) NOT NULL,
-      conversation_id VARCHAR(36) NOT NULL,
-      created_at      TIMESTAMP(3) NOT NULL TIME INDEX,
-      "type"          VARCHAR(64),
-      "data"          STRING,
+      ${col('id')}        VARCHAR(36) NOT NULL,
+      conversation_id     VARCHAR(36) NOT NULL,
+      created_at          TIMESTAMP(3) NOT NULL TIME INDEX,
+      ${col('type')}      VARCHAR(64),
+      ${col('data')}      STRING,
       PRIMARY KEY (id)
     ) WITH ('append_mode' = 'true')
-  `));
+  `;
+  await withRetry(() => sql.unsafe(IS_SQLITE ? sqliteAdapt(ddl) : ddl));
 }
 
 export async function dropTable(name: string): Promise<void> {

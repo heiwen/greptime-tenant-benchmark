@@ -8,10 +8,14 @@
 
 import { SQL } from 'bun';
 
-const sql = new SQL(
-  process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
-  { max: 20, idleTimeout: 20, connectionTimeout: 10, ssl: false, prepare: false },
-);
+const GREPTIMEDB_URL = process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public';
+const IS_MYSQL = GREPTIMEDB_URL.startsWith('mysql://');
+const colTimestamp = IS_MYSQL ? '`timestamp`' : '"timestamp"';
+
+const sql = new SQL(GREPTIMEDB_URL, {
+  max: 20, idleTimeout: 20, connectionTimeout: 10, ssl: false,
+  ...(IS_MYSQL ? {} : { prepare: false }),
+});
 
 function heapMB(): number {
   return process.memoryUsage().heapUsed / 1_048_576;
@@ -27,7 +31,7 @@ function randomHex(len: number): string {
 async function createTable(name: string): Promise<void> {
   await sql.unsafe(`
     CREATE TABLE IF NOT EXISTS ${name} (
-      "timestamp"    TIMESTAMP(9) NOT NULL TIME INDEX,
+      ${colTimestamp} TIMESTAMP(9) NOT NULL TIME INDEX,
       span_id        VARCHAR(16) NOT NULL,
       parent_span_id VARCHAR(16),
       service_name   STRING,

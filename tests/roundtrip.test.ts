@@ -1,14 +1,10 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { SQL } from 'bun';
-import { createSpansTable, createItemsTable, dropTable, spanRow, minimalSpanRow, itemRow, uniqueSuffix, ts } from './helpers.ts';
+import { createSpansTable, createItemsTable, dropTable, spanRow, minimalSpanRow, itemRow, uniqueSuffix, ts, makePool } from './helpers.ts';
 
 // Own pool: SELECT * on spans table triggers ERR_POSTGRES_UNSUPPORTED_NUMERIC_FORMAT
 // (BIGINT/INT columns returned in binary format). Isolated to avoid corrupting the
 // shared helpers.ts pool used by other parallel test files for DDL.
-const sql = new SQL(
-  process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
-  { max: 5, idleTimeout: 30, connectionTimeout: 15, ssl: false, prepare: false },
-);
+const sql = makePool({ max: 5, idleTimeout: 30, connectionTimeout: 15 });
 
 const SPANS = `test_spans_${uniqueSuffix()}`;
 const ITEMS = `test_items_${uniqueSuffix()}`;
@@ -118,7 +114,7 @@ describe('span roundtrip', () => {
     await sql`INSERT INTO ${sql(SPANS)} ${sql([row])}`;
 
     const [r] = await sql`
-      SELECT "timestamp" FROM ${sql(SPANS)}
+      SELECT ${sql('timestamp')} FROM ${sql(SPANS)}
       WHERE span_id = ${row.span_id as string}
     `;
 
@@ -153,7 +149,7 @@ describe('conversation item roundtrip', () => {
 
     const [r] = await sql`
       SELECT * FROM ${sql(ITEMS)}
-      WHERE "id" = ${row.id as string}
+      WHERE ${sql('id')} = ${row.id as string}
     `;
 
     expect(r).toBeDefined();
@@ -170,8 +166,8 @@ describe('conversation item roundtrip', () => {
     await sql`INSERT INTO ${sql(ITEMS)} ${sql([row])}`;
 
     const [r] = await sql`
-      SELECT "type", "data" FROM ${sql(ITEMS)}
-      WHERE "id" = ${row.id as string}
+      SELECT ${sql('type')}, ${sql('data')} FROM ${sql(ITEMS)}
+      WHERE ${sql('id')} = ${row.id as string}
     `;
 
     expect(r.type).toBeNull();
@@ -186,7 +182,7 @@ describe('conversation item roundtrip', () => {
 
     const [r] = await sql`
       SELECT created_at FROM ${sql(ITEMS)}
-      WHERE "id" = ${row.id as string}
+      WHERE ${sql('id')} = ${row.id as string}
     `;
 
     const returned = new Date(r.created_at as string | Date);

@@ -35,7 +35,7 @@ afterAll(async () => {
 describe('DATE_TRUNC', () => {
   test("DATE_TRUNC('hour') buckets rows into correct hourly bins", async () => {
     const rows = await sql`
-      SELECT DATE_TRUNC('hour', "timestamp") AS hour_bucket, COUNT(*) AS c
+      SELECT DATE_TRUNC('hour', ${sql('timestamp')}) AS hour_bucket, COUNT(*) AS c
       FROM ${sql(TABLE)}
       WHERE service_name = ${'dt-' + MARKER}
       GROUP BY hour_bucket
@@ -56,7 +56,7 @@ describe('DATE_TRUNC', () => {
 
   test("DATE_TRUNC('day') buckets all rows into one day bucket", async () => {
     const rows = await sql`
-      SELECT DATE_TRUNC('day', "timestamp") AS day_bucket, COUNT(*) AS c
+      SELECT DATE_TRUNC('day', ${sql('timestamp')}) AS day_bucket, COUNT(*) AS c
       FROM ${sql(TABLE)}
       WHERE service_name = ${'dt-' + MARKER}
       GROUP BY day_bucket
@@ -73,7 +73,7 @@ describe('DATE_TRUNC', () => {
   test("DATE_TRUNC('minute') buckets each row into its own minute", async () => {
     // Each row is 60s apart within each hour, so each has a unique minute
     const rows = await sql`
-      SELECT COUNT(DISTINCT DATE_TRUNC('minute', "timestamp")) AS buckets
+      SELECT COUNT(DISTINCT DATE_TRUNC('minute', ${sql('timestamp')})) AS buckets
       FROM ${sql(TABLE)}
       WHERE service_name = ${'dt-' + MARKER}
     `;
@@ -88,7 +88,7 @@ describe('NOW() and INTERVAL arithmetic', () => {
     const rows = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
       WHERE service_name = ${'dt-' + MARKER}
-        AND "timestamp" > NOW() - INTERVAL '1 hour'
+        AND ${sql('timestamp')} > NOW() - INTERVAL '1 hour'
     `;
     expect(Number(rows[0].c)).toBe(0);
   });
@@ -109,7 +109,7 @@ describe('NOW() and INTERVAL arithmetic', () => {
     await sql`INSERT INTO ${sql(TABLE)} ${sql([row])}`;
 
     const [r] = await sql`
-      SELECT "timestamp" + INTERVAL '30 minutes' AS shifted
+      SELECT ${sql('timestamp')} + INTERVAL '30 minutes' AS shifted
       FROM ${sql(TABLE)}
       WHERE span_id = ${row.span_id as string}
     `;
@@ -129,7 +129,7 @@ describe('EXTRACT', () => {
     await sql`INSERT INTO ${sql(TABLE)} ${sql([row])}`;
 
     const [r] = await sql`
-      SELECT EXTRACT(EPOCH FROM "timestamp") AS ep
+      SELECT EXTRACT(EPOCH FROM ${sql('timestamp')}) AS ep
       FROM ${sql(TABLE)}
       WHERE span_id = ${row.span_id as string}
     `;
@@ -142,7 +142,7 @@ describe('EXTRACT', () => {
     await sql`INSERT INTO ${sql(TABLE)} ${sql([row])}`;
 
     const [r] = await sql`
-      SELECT EXTRACT(hour FROM "timestamp") AS h
+      SELECT EXTRACT(hour FROM ${sql('timestamp')}) AS h
       FROM ${sql(TABLE)}
       WHERE span_id = ${row.span_id as string}
     `;
@@ -156,7 +156,7 @@ describe('time histogram (DATE_TRUNC + GROUP BY + aggregates)', () => {
     // The seeded dataset has 5 rows per hour for 4 hours
     const rows = await sql`
       SELECT
-        DATE_TRUNC('hour', "timestamp") AS hour_bucket,
+        DATE_TRUNC('hour', ${sql('timestamp')}) AS hour_bucket,
         COUNT(*) AS row_count,
         SUM(gen_ai_input_tokens) AS total_tokens
       FROM ${sql(TABLE)}
@@ -181,11 +181,11 @@ describe('time histogram (DATE_TRUNC + GROUP BY + aggregates)', () => {
     const to   = msAt(2 * 3600);  // 12:00:00
 
     const rows = await sql`
-      SELECT DATE_TRUNC('hour', "timestamp") AS hour_bucket, COUNT(*) AS c
+      SELECT DATE_TRUNC('hour', ${sql('timestamp')}) AS hour_bucket, COUNT(*) AS c
       FROM ${sql(TABLE)}
       WHERE service_name = ${'dt-' + MARKER}
-        AND "timestamp" >= ${from.toISOString()}
-        AND "timestamp" < ${to.toISOString()}
+        AND ${sql('timestamp')} >= ${from.toISOString()}
+        AND ${sql('timestamp')} < ${to.toISOString()}
       GROUP BY hour_bucket
       ORDER BY hour_bucket
     `;

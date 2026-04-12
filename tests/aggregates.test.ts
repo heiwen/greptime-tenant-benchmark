@@ -1,13 +1,9 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { SQL } from 'bun';
-import { createSpansTable, dropTable, spanRow, uniqueSuffix, randomHex, ts } from './helpers.ts';
+import { createSpansTable, dropTable, spanRow, uniqueSuffix, randomHex, ts, makePool } from './helpers.ts';
 
 // Own pool: MIN/MAX on integer columns triggers ERR_POSTGRES_UNSUPPORTED_NUMERIC_FORMAT.
 // Isolated to avoid corrupting the shared pool used by parallel test files.
-const sql = new SQL(
-  process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
-  { max: 5, idleTimeout: 30, connectionTimeout: 15, ssl: false, prepare: false },
-);
+const sql = makePool({ max: 5, idleTimeout: 30, connectionTimeout: 15 });
 
 const TABLE = `test_spans_${uniqueSuffix()}`;
 
@@ -89,7 +85,7 @@ describe('COUNT', () => {
 describe('MIN / MAX', () => {
   test('MIN on timestamp returns the oldest row', async () => {
     const [r] = await sql`
-      SELECT MIN("timestamp") AS mn FROM ${sql(TABLE)}
+      SELECT MIN(${sql('timestamp')}) AS mn FROM ${sql(TABLE)}
       WHERE service_name = ${'agg-' + MARKER}
     `;
     expect(r.mn).toBeDefined();
@@ -101,7 +97,7 @@ describe('MIN / MAX', () => {
 
   test('MAX on timestamp returns the newest row', async () => {
     const [r] = await sql`
-      SELECT MAX("timestamp") AS mx FROM ${sql(TABLE)}
+      SELECT MAX(${sql('timestamp')}) AS mx FROM ${sql(TABLE)}
       WHERE service_name = ${'agg-' + MARKER}
     `;
     // newest row was inserted at ts(-3004) — approx 30min - 3000s ago
