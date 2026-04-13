@@ -173,7 +173,7 @@ Full scale on m7i-flex.8xlarge:
 
 ```bash
 tmux new -s seed
-bun run seed -- --strategy b --workers 12 && bun run seed -- --strategy a --workers 12
+bun run seed -- --strategy b && bun run seed -- --strategy a
 ```
 
 Detach so the seed keeps running after you disconnect: `Ctrl+B` then `D`.
@@ -195,7 +195,9 @@ Scale is controlled by env vars (defaults shown):
 | `SEED_BATCH_SIZE` | `500` | Rows per LP batch for conversation items |
 | `SPAN_BATCH_SIZE` | `100` | Spans per LP batch |
 | `SEED_CONCURRENCY` | `1` | Tenants seeded in parallel per worker. Row generation is CPU-bound and dominates over async HTTP latency (localhost). Scale throughput via `--workers` instead; raise workers until GreptimeDB returns error 1003, then back off by 2. |
+| `SEED_WORKERS` | `10` | Default number of worker processes spawned by the seed orchestrator. Overridden by `--workers` on the command line. |
 | `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant down proportionally for large tenant counts (e.g. `0.2` gives 100k spans/tenant) |
+| `HISTORICAL_SHARE` | `0.60` | Fraction of per-tenant rows seeded with historical timestamps (>4 months old). Recent (15%) and fresh (10%) shares are fixed. Reducing this below the original 0.75 shrinks total seeded rows without touching hot data — at 0.60 each strategy fits within 8 TB on a 16 TB volume. |
 
 Seeding is CPU-bound (row generation) and single-threaded per process. Use `--workers N` to parallelise across CPU cores. Each worker handles an equal slice of tenants. Start with `--workers 12` and raise until GreptimeDB returns error 1003, then back off by 2.
 
@@ -214,14 +216,14 @@ bun run seed -- --strategy b
 For the **1k-tenant run** (same per-tenant density, ~4 TB compressed):
 
 ```bash
-TENANT_COUNT=1000 bun run seed -- --strategy b --workers 12 && TENANT_COUNT=1000 bun run seed -- --strategy a --workers 12
+TENANT_COUNT=1000 bun run seed -- --strategy b && TENANT_COUNT=1000 bun run seed -- --strategy a
 ```
 
 For the **10k-tenant run** (reduced density so Q-time 1h returns ~50 rows, ~3.5 TB compressed):
 
 ```bash
-TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy b --workers 12
-TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy a --workers 12
+TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy b
+TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy a
 ```
 
 ### Step 4 — Run the benchmark
@@ -405,6 +407,8 @@ Note: the public IP changes after a stop/start. Re-run the `describe-instances` 
 | `ITEMS_PER_TENANT` | `1000000` | |
 | `CONVERSATIONS_PER_TENANT` | `50000` | |
 | `SEED_CONCURRENCY` | `1` | Tenants seeded in parallel per worker (see seed guidance above) |
+| `SEED_WORKERS` | `10` | Default worker processes for the seed orchestrator; override with `--workers` |
 | `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant proportionally |
+| `HISTORICAL_SHARE` | `0.60` | Fraction of rows seeded as historical (>4 months old); reduce to shrink disk usage without affecting hot data |
 | `CONV_PK` | `false` | Add `conversation_id` to the PRIMARY KEY of `conversation_items` tables. See [CONV_PK comparison](#conv_pk-comparison) below. |
 | `RESULTS_DIR` | `./results` | Output directory for CSVs |

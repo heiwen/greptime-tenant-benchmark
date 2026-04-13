@@ -46,8 +46,8 @@ async function main() {
   const workersIdx = args.indexOf('--workers');
   const workerIndexIdx = args.indexOf('--worker-index');
 
-  if (workersIdx >= 0 && workerIndexIdx < 0) {
-    const workerCount = parseInt(args[workersIdx + 1], 10);
+  if (workerIndexIdx < 0) {
+    const workerCount = workersIdx >= 0 ? parseInt(args[workersIdx + 1], 10) : config.seedWorkers;
     if (isNaN(workerCount) || workerCount < 1) {
       console.error('--workers must be a positive integer');
       process.exit(1);
@@ -62,7 +62,9 @@ async function main() {
 
     console.log(`Spawning ${workerCount} workers for strategy ${strategy.toUpperCase()}...`);
 
-    const baseArgs = args.filter((_, i) => i !== workersIdx && i !== workersIdx + 1);
+    const baseArgs = workersIdx >= 0
+      ? args.filter((_, i) => i !== workersIdx && i !== workersIdx + 1)
+      : args;
     const procs = Array.from({ length: workerCount }, (_, i) =>
       Bun.spawn({
         cmd: [process.execPath, process.argv[1], ...baseArgs, '--worker-index', String(i), '--worker-count', String(workerCount)],

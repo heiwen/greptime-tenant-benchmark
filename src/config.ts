@@ -17,6 +17,9 @@ export const config = {
   // Use --workers to scale throughput; SEED_CONCURRENCY=1 is sufficient.
   // Raise --workers until GreptimeDB returns 1003 (write-path overload), then back off by 2.
   seedConcurrency: parseInt(process.env.SEED_CONCURRENCY ?? '1', 10),
+  // Default number of parallel worker processes spawned by the seed orchestrator.
+  // Overridden by --workers on the command line.
+  seedWorkers: parseInt(process.env.SEED_WORKERS ?? '10', 10),
   // Scale data per tenant down proportionally when running large tenant counts.
   // e.g. SPARSE_MULTIPLIER=0.2 gives 100k spans/tenant at 10k tenants.
   sparseMultiplier: parseFloat(process.env.SPARSE_MULTIPLIER ?? '1.0'),
@@ -24,7 +27,7 @@ export const config = {
   // Recent (15%) and fresh (10%) shares are fixed; reducing this below 0.75
   // shrinks total seeded rows proportionally without touching the hot data.
   // e.g. HISTORICAL_SHARE=0.65 seeds 90% of the target rows per tenant.
-  historicalShare: parseFloat(process.env.HISTORICAL_SHARE ?? '0.65'),
+  historicalShare: parseFloat(process.env.HISTORICAL_SHARE ?? '0.60'),
   // Add conversation_id to the PRIMARY KEY of conversation_items tables.
   // Physically co-locates items per conversation in SST files, making q-conv-scattered fast
   // at the cost of higher series cardinality (50k series/tenant vs 1).
