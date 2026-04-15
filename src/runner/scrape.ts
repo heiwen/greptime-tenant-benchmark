@@ -3,65 +3,110 @@ export interface PrometheusSnapshot {
   metrics: Record<string, number>;
 }
 
-// Scalar metrics: sum across all datanodes.
-const SCALAR_METRICS = [
-  'greptime_mito_memtable_usage_bytes',
-  'greptime_mito_open_files_total',
-];
+interface PrometheusSample {
+  name: string;
+  labels: Record<string, string>;
+  value: number;
+}
 
-// Label-filtered metrics: track each label variant as a separate key.
-// Format: [metricName, labelKey, labelValue, outputKey]
-type LabeledMetric = [string, string, string, string];
-const LABELED_METRICS: LabeledMetric[] = [
-  ['greptime_mito_cache_bytes', 'type', 'index', 'greptime_mito_cache_bytes{type="index"}'],
-  ['greptime_mito_cache_bytes', 'type', 'data',  'greptime_mito_cache_bytes{type="data"}'],
-  ['greptime_mito_cache_hit_total',  'type', '', 'greptime_mito_cache_hit_total'],
-  ['greptime_mito_cache_miss_total', 'type', '', 'greptime_mito_cache_miss_total'],
-];
+function tokenizeMetricName(name: string): Set<string> {
+  return new Set(name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+}
 
-function parsePrometheusText(text: string): Record<string, number> {
+function parseLabels(raw: string): Record<string, string> {
+  const labels: Record<string, string> = {};
+  const matches = raw.matchAll(/([a-zA-Z_][a-zA-Z0-9_]*)="((?:\\.|[^"])*)"/g);
+  for (const match of matches) {
+    labels[match[1]] = match[2].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  }
+  return labels;
+}
+
+function parsePrometheusSamples(text: string): PrometheusSample[] {
+  const samples: PrometheusSample[] = [];
+
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (line === '' || line.startsWith('#')) continue;
+
+    const sampleMatch = line.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{([^}]*)\})?\s+([^\s]+)(?:\s+[^\s]+)?$/);
+    if (!sampleMatch) continue;
+
+    const value = Number.parseFloat(sampleMatch[3]);
+    if (!Number.isFinite(value)) continue;
+
+    samples.push({
+      name: sampleMatch[1],
+      labels: sampleMatch[2] ? parseLabels(sampleMatch[2]) : {},
+      value,
+    });
+  }
+
+  return samples;
+}
+
+function hasLabelValue(labels: Record<string, string>, expected: string): boolean {
+  return Object.values(labels).some((value) => value.toLowerCase() === expected);
+}
+
+function hasAnyLabelValue(labels: Record<string, string>, expected: string[]): boolean {
+  return expected.some((value) => hasLabelValue(labels, value));
+}
+
+export function parsePrometheusText(text: string): Record<string, number> {
   const result: Record<string, number> = {};
-  const lines = text.split('\n');
 
-  for (const line of lines) {
-    if (line.startsWith('#') || line.trim() === '') continue;
+  for (const sample of parsePrometheusSamples(text)) {
+    const lowerName = sample.name.toLowerCase();
+    const tokens = tokenizeMetricName(lowerName);
 
-    // Scalar metrics: match by prefix, sum all label variants
-    for (const metricName of SCALAR_METRICS) {
-      if (line.startsWith(metricName + ' ') || line.startsWith(metricName + '{')) {
-        const spaceIdx = line.lastIndexOf(' ');
-        const value = parseFloat(line.slice(spaceIdx + 1));
-        if (!isNaN(value)) {
-          result[metricName] = (result[metricName] ?? 0) + value;
-        }
-      }
+    const add = (outputKey: string): void => {
+      result[outputKey] = (result[outputKey] ?? 0) + sample.value;
+    };
+
+    const isLegacyMetric = (name: string): boolean => lowerName === name;
+
+    if (
+      isLegacyMetric('greptime_mito_memtable_usage_bytes') ||
+      (tokens.has('memtable') && tokens.has('bytes'))
+    ) {
+      add('greptime_mito_memtable_usage_bytes');
     }
 
-    // Labeled metrics: extract specific label values
-    for (const [metricName, labelKey, labelValue, outputKey] of LABELED_METRICS) {
-      if (!line.startsWith(metricName)) continue;
+    if (
+      isLegacyMetric('greptime_mito_open_files_total') ||
+      (tokens.has('open') && (tokens.has('file') || tokens.has('files')))
+    ) {
+      add('greptime_mito_open_files_total');
+    }
 
-      // If no specific label value required, sum all variants
-      if (labelValue === '') {
-        if (line.startsWith(metricName + ' ') || line.startsWith(metricName + '{')) {
-          const spaceIdx = line.lastIndexOf(' ');
-          const value = parseFloat(line.slice(spaceIdx + 1));
-          if (!isNaN(value)) {
-            result[outputKey] = (result[outputKey] ?? 0) + value;
-          }
-        }
-        continue;
-      }
+    const isCacheBytesMetric =
+      isLegacyMetric('greptime_mito_cache_bytes') ||
+      (tokens.has('cache') && tokens.has('bytes'));
 
-      // Match specific label: metricName{...labelKey="labelValue"...}
-      const labelPattern = `${labelKey}="${labelValue}"`;
-      if (line.includes(labelPattern)) {
-        const spaceIdx = line.lastIndexOf(' ');
-        const value = parseFloat(line.slice(spaceIdx + 1));
-        if (!isNaN(value)) {
-          result[outputKey] = (result[outputKey] ?? 0) + value;
-        }
-      }
+    if (isCacheBytesMetric && (hasLabelValue(sample.labels, 'index') || tokens.has('index'))) {
+      add('greptime_mito_cache_bytes{type="index"}');
+    }
+    if (isCacheBytesMetric && (hasLabelValue(sample.labels, 'data') || tokens.has('data'))) {
+      add('greptime_mito_cache_bytes{type="data"}');
+    }
+
+    const isCacheHitMetric =
+      isLegacyMetric('greptime_mito_cache_hit_total') ||
+      (tokens.has('cache') && tokens.has('hit')) ||
+      (tokens.has('cache') && hasAnyLabelValue(sample.labels, ['hit', 'hits']));
+
+    if (isCacheHitMetric) {
+      add('greptime_mito_cache_hit_total');
+    }
+
+    const isCacheMissMetric =
+      isLegacyMetric('greptime_mito_cache_miss_total') ||
+      (tokens.has('cache') && tokens.has('miss')) ||
+      (tokens.has('cache') && hasAnyLabelValue(sample.labels, ['miss', 'misses']));
+
+    if (isCacheMissMetric) {
+      add('greptime_mito_cache_miss_total');
     }
   }
 
