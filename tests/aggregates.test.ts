@@ -8,7 +8,7 @@ const sql = makePool({ max: 5, idleTimeout: 30, connectionTimeout: 15 });
 const TABLE = `test_spans_${uniqueSuffix()}`;
 
 // Seed data shared across aggregate tests
-const MARKER = randomHex(8);
+const TRACE_ID = randomHex(32);
 
 beforeAll(async () => {
   await createSpansTable(TABLE);
@@ -21,7 +21,7 @@ beforeAll(async () => {
   const rows = [
     ...Array.from({ length: 20 }, (_, i) =>
       spanRow({
-        service_name:        `agg-${MARKER}`,
+        trace_id:            TRACE_ID,
         gen_ai_system:       'openai',
         gen_ai_input_tokens: 100 + i,
         parent_span_id:      i < 10 ? null : randomHex(16),
@@ -30,7 +30,7 @@ beforeAll(async () => {
     ),
     ...Array.from({ length: 15 }, (_, i) =>
       spanRow({
-        service_name:        `agg-${MARKER}`,
+        trace_id:            TRACE_ID,
         gen_ai_system:       'anthropic',
         gen_ai_input_tokens: 200 + i,
         parent_span_id:      randomHex(16),
@@ -39,7 +39,7 @@ beforeAll(async () => {
     ),
     ...Array.from({ length: 5 }, (_, i) =>
       spanRow({
-        service_name:        `agg-${MARKER}`,
+        trace_id:            TRACE_ID,
         gen_ai_system:       'google',
         gen_ai_input_tokens: null,
         parent_span_id:      null,
@@ -59,7 +59,7 @@ describe('COUNT', () => {
   test('COUNT(*) counts all rows including NULLs', async () => {
     const [r] = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
     `;
     expect(Number(r.c)).toBe(40);
   });
@@ -68,7 +68,7 @@ describe('COUNT', () => {
     // gen_ai_input_tokens is null for the 5 google rows
     const [r] = await sql`
       SELECT COUNT(gen_ai_input_tokens) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
     `;
     expect(Number(r.c)).toBe(35);
   });
@@ -76,7 +76,7 @@ describe('COUNT', () => {
   test('COUNT(*) on empty result set returns 0', async () => {
     const [r] = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'nonexistent-' + MARKER}
+      WHERE trace_id = ${randomHex(32)}
     `;
     expect(Number(r.c)).toBe(0);
   });
@@ -86,7 +86,7 @@ describe('MIN / MAX', () => {
   test('MIN on timestamp returns the oldest row', async () => {
     const [r] = await sql`
       SELECT MIN(${sql('timestamp')}) AS mn FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
     `;
     expect(r.mn).toBeDefined();
     // oldest row was inserted at ts(-5000)
@@ -98,7 +98,7 @@ describe('MIN / MAX', () => {
   test('MAX on timestamp returns the newest row', async () => {
     const [r] = await sql`
       SELECT MAX(${sql('timestamp')}) AS mx FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
     `;
     // newest row was inserted at ts(-3004) — approx 30min - 3000s ago
     const maxTime = new Date(r.mx as string | Date).getTime();
@@ -109,7 +109,7 @@ describe('MIN / MAX', () => {
   test('MIN on integer column', async () => {
     const [r] = await sql`
       SELECT MIN(gen_ai_input_tokens) AS mn FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
     `;
     // NULL rows are excluded; min is 100
     expect(Number(r.mn)).toBe(100);
@@ -118,7 +118,7 @@ describe('MIN / MAX', () => {
   test('MAX on integer column', async () => {
     const [r] = await sql`
       SELECT MAX(gen_ai_input_tokens) AS mx FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
     `;
     // max is 214
     expect(Number(r.mx)).toBe(214);
@@ -128,7 +128,7 @@ describe('MIN / MAX', () => {
     // google rows have null tokens; query only google
     const [r] = await sql`
       SELECT MIN(gen_ai_input_tokens) AS mn FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND gen_ai_system = 'google'
     `;
     expect(r.mn).toBeNull();
@@ -140,7 +140,7 @@ describe('SUM / AVG', () => {
     // 100+101+...+119 = sum of 20 values starting at 100 = 20*100 + (0+1+...+19) = 2000 + 190 = 2190
     const [r] = await sql`
       SELECT SUM(gen_ai_input_tokens) AS s FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND gen_ai_system = 'openai'
     `;
     expect(Number(r.s)).toBe(2190);
@@ -150,7 +150,7 @@ describe('SUM / AVG', () => {
     // average of 100..119 = 109.5
     const [r] = await sql`
       SELECT AVG(gen_ai_input_tokens) AS a FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND gen_ai_system = 'openai'
     `;
     expect(Number(r.a)).toBeCloseTo(109.5, 1);
@@ -159,7 +159,7 @@ describe('SUM / AVG', () => {
   test('SUM ignores NULLs', async () => {
     const [r] = await sql`
       SELECT SUM(gen_ai_input_tokens) AS s FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
     `;
     // openai: 2190, anthropic: 200+...+214 = 15*200+(0+...+14)=3000+105=3105, google: null (ignored)
     expect(Number(r.s)).toBe(2190 + 3105);
@@ -170,7 +170,7 @@ describe('GROUP BY', () => {
   test('GROUP BY gen_ai_system returns one row per system', async () => {
     const rows = await sql`
       SELECT gen_ai_system, COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
       GROUP BY gen_ai_system
       ORDER BY gen_ai_system
     `;
@@ -184,7 +184,7 @@ describe('GROUP BY', () => {
   test('GROUP BY with SUM produces correct per-group totals', async () => {
     const rows = await sql`
       SELECT gen_ai_system, SUM(gen_ai_input_tokens) AS s FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
       GROUP BY gen_ai_system
       ORDER BY gen_ai_system
     `;
@@ -198,10 +198,10 @@ describe('GROUP BY', () => {
 });
 
 describe('DISTINCT', () => {
-  test('DISTINCT on service_name returns deduplicated values', async () => {
+  test('DISTINCT on gen_ai_system returns deduplicated values', async () => {
     const rows = await sql`
       SELECT DISTINCT gen_ai_system FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
       ORDER BY gen_ai_system
     `;
     const systems = rows.map((r: Record<string, unknown>) => r.gen_ai_system);
@@ -212,7 +212,7 @@ describe('DISTINCT', () => {
     // parent_span_id: 15 null rows (10 openai + 5 google), rest are distinct hex values
     const rows = await sql`
       SELECT DISTINCT parent_span_id FROM ${sql(TABLE)}
-      WHERE service_name = ${'agg-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
     `;
     const nullRows = rows.filter((r: Record<string, unknown>) => r.parent_span_id === null);
     expect(nullRows.length).toBeLessThanOrEqual(1);

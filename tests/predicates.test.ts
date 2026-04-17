@@ -3,7 +3,7 @@ import { sql, createSpansTable, createIndexedSpansTable, dropTable, spanRow, uni
 
 const TABLE   = `test_spans_${uniqueSuffix()}`;
 const INDEXED = `test_spans_idx_${uniqueSuffix()}`;
-const MARKER  = randomHex(8);
+const TRACE_ID = randomHex(32);
 
 beforeAll(async () => {
   await createSpansTable(TABLE);
@@ -11,11 +11,11 @@ beforeAll(async () => {
 
   // Seed TABLE with known data
   const rows = [
-    spanRow({ service_name: `pred-${MARKER}`, gen_ai_system: 'openai',    parent_span_id: null,           span_name: 'openai.gpt-4o.chat',       gen_ai_input_tokens: 100, timestamp: ts(-6000) }),
-    spanRow({ service_name: `pred-${MARKER}`, gen_ai_system: 'anthropic', parent_span_id: null,           span_name: 'anthropic.claude.chat',    gen_ai_input_tokens: 200, timestamp: ts(-5999) }),
-    spanRow({ service_name: `pred-${MARKER}`, gen_ai_system: 'google',    parent_span_id: randomHex(16), span_name: 'google.gemini.search',     gen_ai_input_tokens: 300, timestamp: ts(-5998) }),
-    spanRow({ service_name: `pred-${MARKER}`, gen_ai_system: 'cohere',    parent_span_id: randomHex(16), span_name: 'cohere.command.generate',  gen_ai_input_tokens: null, timestamp: ts(-5997) }),
-    spanRow({ service_name: `pred-${MARKER}`, gen_ai_system: 'mistral',   parent_span_id: randomHex(16), span_name: 'mistral.large.complete',   gen_ai_input_tokens: null, timestamp: ts(-5996) }),
+    spanRow({ trace_id: TRACE_ID, gen_ai_system: 'openai',    parent_span_id: null,           span_name: 'openai.gpt-4o.chat',      gen_ai_input_tokens: 100, timestamp: ts(-6000) }),
+    spanRow({ trace_id: TRACE_ID, gen_ai_system: 'anthropic', parent_span_id: null,           span_name: 'anthropic.claude.chat',   gen_ai_input_tokens: 200, timestamp: ts(-5999) }),
+    spanRow({ trace_id: TRACE_ID, gen_ai_system: 'google',    parent_span_id: randomHex(16), span_name: 'google.gemini.search',    gen_ai_input_tokens: 300, timestamp: ts(-5998) }),
+    spanRow({ trace_id: TRACE_ID, gen_ai_system: 'cohere',    parent_span_id: randomHex(16), span_name: 'cohere.command.generate', gen_ai_input_tokens: null, timestamp: ts(-5997) }),
+    spanRow({ trace_id: TRACE_ID, gen_ai_system: 'mistral',   parent_span_id: randomHex(16), span_name: 'mistral.large.complete',  gen_ai_input_tokens: null, timestamp: ts(-5996) }),
   ];
   await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 }, 20_000);
@@ -29,7 +29,7 @@ describe('IS NULL / IS NOT NULL', () => {
   test('IS NULL returns only rows where field is null', async () => {
     const rows = await sql`
       SELECT gen_ai_system FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND parent_span_id IS NULL
       ORDER BY ${sql('timestamp')}
     `;
@@ -40,7 +40,7 @@ describe('IS NULL / IS NOT NULL', () => {
   test('IS NOT NULL returns only rows where field is set', async () => {
     const rows = await sql`
       SELECT gen_ai_system FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND parent_span_id IS NOT NULL
       ORDER BY ${sql('timestamp')}
     `;
@@ -51,7 +51,7 @@ describe('IS NULL / IS NOT NULL', () => {
   test('IS NULL on integer column with null values', async () => {
     const rows = await sql`
       SELECT gen_ai_system FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND gen_ai_input_tokens IS NULL
       ORDER BY ${sql('timestamp')}
     `;
@@ -64,7 +64,7 @@ describe('IN / NOT IN', () => {
   test('IN matches all listed values', async () => {
     const rows = await sql`
       SELECT gen_ai_system FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND gen_ai_system IN ('openai', 'anthropic')
       ORDER BY ${sql('timestamp')}
     `;
@@ -77,7 +77,7 @@ describe('IN / NOT IN', () => {
   test('NOT IN excludes listed values', async () => {
     const rows = await sql`
       SELECT gen_ai_system FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND gen_ai_system NOT IN ('openai', 'anthropic')
       ORDER BY ${sql('timestamp')}
     `;
@@ -90,7 +90,7 @@ describe('IN / NOT IN', () => {
   test('IN with a single value', async () => {
     const rows = await sql`
       SELECT gen_ai_system FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND gen_ai_system IN ('google')
     `;
     expect(rows.length).toBe(1);
@@ -100,21 +100,21 @@ describe('IN / NOT IN', () => {
 
 describe('BETWEEN', () => {
   test('BETWEEN on timestamp is inclusive on both ends', async () => {
-    const marker2 = randomHex(8);
+    const traceId2 = randomHex(32);
     const t1 = ts(-7000);
     const t2 = ts(-7000 + 2000); // 2 seconds later
     const rows = [
-      spanRow({ service_name: `btw-${marker2}`, timestamp: new Date(t1.getTime() - 1) }), // just before
-      spanRow({ service_name: `btw-${marker2}`, timestamp: t1 }),                          // at t1 — included
-      spanRow({ service_name: `btw-${marker2}`, timestamp: ts(-7000 + 1000) }),             // between — included
-      spanRow({ service_name: `btw-${marker2}`, timestamp: t2 }),                          // at t2 — included
-      spanRow({ service_name: `btw-${marker2}`, timestamp: new Date(t2.getTime() + 1) }), // just after
+      spanRow({ trace_id: traceId2, timestamp: new Date(t1.getTime() - 1) }), // just before
+      spanRow({ trace_id: traceId2, timestamp: t1 }),                          // at t1 — included
+      spanRow({ trace_id: traceId2, timestamp: ts(-7000 + 1000) }),            // between — included
+      spanRow({ trace_id: traceId2, timestamp: t2 }),                          // at t2 — included
+      spanRow({ trace_id: traceId2, timestamp: new Date(t2.getTime() + 1) }), // just after
     ];
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'btw-' + marker2}
+      WHERE trace_id = ${traceId2}
         AND ${sql('timestamp')} BETWEEN ${t1.toISOString()} AND ${t2.toISOString()}
     `;
     expect(Number(result[0].c)).toBe(3);
@@ -123,7 +123,7 @@ describe('BETWEEN', () => {
   test('BETWEEN on integer column', async () => {
     const rows = await sql`
       SELECT gen_ai_system FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND gen_ai_input_tokens BETWEEN 100 AND 200
       ORDER BY ${sql('timestamp')}
     `;
@@ -138,7 +138,7 @@ describe('LIKE', () => {
   test("LIKE 'prefix%' — prefix match", async () => {
     const rows = await sql`
       SELECT span_name FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND span_name LIKE 'openai%'
     `;
     expect(rows.length).toBe(1);
@@ -148,7 +148,7 @@ describe('LIKE', () => {
   test("LIKE '%suffix' — suffix match", async () => {
     const rows = await sql`
       SELECT span_name FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND span_name LIKE '%chat'
     `;
     expect(rows.length).toBe(2);
@@ -160,7 +160,7 @@ describe('LIKE', () => {
   test("LIKE '%middle%' — substring match", async () => {
     const rows = await sql`
       SELECT span_name FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND span_name LIKE '%gpt%'
     `;
     expect(rows.length).toBe(1);
@@ -170,7 +170,7 @@ describe('LIKE', () => {
   test('LIKE with no matches returns empty result', async () => {
     const rows = await sql`
       SELECT span_name FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND span_name LIKE 'zzz%'
     `;
     expect(rows.length).toBe(0);
@@ -189,7 +189,7 @@ describe('CASE expression', () => {
           ELSE                                    'large'
         END AS size_label
       FROM ${sql(TABLE)}
-      WHERE service_name = ${'pred-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
       ORDER BY ${sql('timestamp')}
     `;
 
@@ -237,14 +237,14 @@ describe('string functions', () => {
   });
 
   test('LENGTH() in WHERE clause filters by string length', async () => {
-    const marker3 = randomHex(8);
-    const short = spanRow({ service_name: `len-${marker3}`, span_name: 'abc',      timestamp: ts(-8000) });
-    const long  = spanRow({ service_name: `len-${marker3}`, span_name: 'abcdefgh', timestamp: ts(-7999) });
+    const traceId3 = randomHex(32);
+    const short = spanRow({ trace_id: traceId3, span_name: 'abc',      timestamp: ts(-8000) });
+    const long  = spanRow({ trace_id: traceId3, span_name: 'abcdefgh', timestamp: ts(-7999) });
     await sql`INSERT INTO ${sql(TABLE)} ${sql([short, long])}`;
 
     const rows = await sql`
       SELECT span_name FROM ${sql(TABLE)}
-      WHERE service_name = ${'len-' + marker3}
+      WHERE trace_id = ${traceId3}
         AND LENGTH(span_name) > 5
     `;
     expect(rows.length).toBe(1);

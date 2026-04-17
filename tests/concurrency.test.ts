@@ -13,14 +13,14 @@ afterAll(async () => {
 
 describe('concurrent writes', () => {
   test('50 concurrent inserts of 10 rows each — all 500 rows are stored', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
 
     await Promise.all(
       Array.from({ length: 50 }, (_, worker) =>
         sql`INSERT INTO ${sql(TABLE)} ${sql(
           Array.from({ length: 10 }, (_, i) =>
             spanRow({
-              service_name: `conc-write-${marker}`,
+              trace_id:  traceId,
               timestamp:    ts(-10000 + worker * 100 + i),
             }),
           ),
@@ -30,20 +30,20 @@ describe('concurrent writes', () => {
 
     const [r] = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'conc-write-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     expect(Number(r.c)).toBe(500);
   }, 60_000);
 
   test('20 concurrent inserts to same table do not error', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const errors: unknown[] = [];
 
     await Promise.all(
       Array.from({ length: 20 }, async (_, i) => {
         try {
           await sql`INSERT INTO ${sql(TABLE)} ${sql([
-            spanRow({ service_name: `conc-err-${marker}`, timestamp: ts(-20000 + i) }),
+            spanRow({ trace_id: traceId, timestamp: ts(-20000 + i) }),
           ])}`;
         } catch (e) {
           errors.push(e);
@@ -57,9 +57,9 @@ describe('concurrent writes', () => {
 
 describe('concurrent reads', () => {
   test('20 concurrent reads of the same set of rows return consistent results', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = Array.from({ length: 30 }, (_, i) =>
-      spanRow({ service_name: `conc-read-${marker}`, timestamp: ts(-30000 + i) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-30000 + i) }),
     );
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
@@ -67,7 +67,7 @@ describe('concurrent reads', () => {
       Array.from({ length: 20 }, () =>
         sql`
           SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-          WHERE service_name = ${'conc-read-' + marker}
+          WHERE trace_id = ${traceId}
         `,
       ),
     );
@@ -80,7 +80,7 @@ describe('concurrent reads', () => {
 
 describe('mixed concurrent reads and writes', () => {
   test('interleaved reads and writes — no errors, final count is correct', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const errors: unknown[] = [];
     let insertedCount = 0;
 
@@ -90,7 +90,7 @@ describe('mixed concurrent reads and writes', () => {
         await sql`INSERT INTO ${sql(TABLE)} ${sql(
           Array.from({ length: 5 }, (_, i) =>
             spanRow({
-              service_name: `mixed-${marker}`,
+              trace_id:  traceId,
               timestamp:    ts(-40000 + worker * 50 + i),
             }),
           ),
@@ -105,7 +105,7 @@ describe('mixed concurrent reads and writes', () => {
       try {
         await sql`
           SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-          WHERE service_name = ${'mixed-' + marker}
+          WHERE trace_id = ${traceId}
         `;
       } catch (e) {
         errors.push(e);
@@ -118,7 +118,7 @@ describe('mixed concurrent reads and writes', () => {
 
     const [r] = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'mixed-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     expect(Number(r.c)).toBe(50);
   }, 30_000);

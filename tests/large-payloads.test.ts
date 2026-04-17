@@ -47,12 +47,12 @@ describe('large STRING fields', () => {
   }, 20_000);
 
   test('batch of 500 rows with ~1 KB STRING fields — row count is correct', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const payload = JSON.stringify([{ role: 'user', content: 'y'.repeat(900) }]);
 
     const rows = Array.from({ length: 500 }, (_, i) =>
       spanRow({
-        service_name:         `large-batch-${marker}`,
+        trace_id:             traceId,
         gen_ai_input_messages: payload,
         timestamp:             ts(-70000 + i),
       }),
@@ -62,7 +62,7 @@ describe('large STRING fields', () => {
 
     const [r] = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'large-batch-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     expect(Number(r.c)).toBe(500);
   }, 60_000);
@@ -70,10 +70,10 @@ describe('large STRING fields', () => {
 
 describe('large result sets', () => {
   test('SELECT * of 1000 rows returns all 1000', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = Array.from({ length: 1_000 }, (_, i) =>
       spanRow({
-        service_name: `large-select-${marker}`,
+        trace_id: traceId,
         timestamp:    ts(-80000 + i),
       }),
     );
@@ -85,17 +85,17 @@ describe('large result sets', () => {
 
     const result = await sql`
       SELECT span_id FROM ${sql(TABLE)}
-      WHERE service_name = ${'large-select-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     expect(result.length).toBe(1_000);
   }, 60_000);
 
   test('1000-row SELECT * — no column is missing or truncated', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const msg = JSON.stringify([{ role: 'user', content: 'z'.repeat(500) }]);
     const rows = Array.from({ length: 10 }, (_, i) =>
       spanRow({
-        service_name:         `col-check-${marker}`,
+        trace_id:             traceId,
         gen_ai_input_messages: msg,
         timestamp:             ts(-90000 + i),
       }),
@@ -105,7 +105,7 @@ describe('large result sets', () => {
 
     const result = await sql`
       SELECT * FROM ${sql(TABLE)}
-      WHERE service_name = ${'col-check-' + marker}
+      WHERE trace_id = ${traceId}
     `;
 
     for (const r of result) {

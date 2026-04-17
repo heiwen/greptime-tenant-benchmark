@@ -17,18 +17,18 @@ afterAll(async () => {
 
 describe('time range queries', () => {
   test('WHERE > cutoff is exclusive of the boundary', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const cutoff = ts(-3600); // 1 hour before base
     // Row exactly at cutoff — should NOT be returned by `> cutoff`
-    const atCutoff = spanRow({ service_name: `excl-${marker}`, timestamp: cutoff });
+    const atCutoff = spanRow({ trace_id: traceId, timestamp: cutoff });
     // Row 1 second after cutoff — should be returned
-    const afterCutoff = spanRow({ service_name: `excl-${marker}`, timestamp: new Date(cutoff.getTime() + 1_000) });
+    const afterCutoff = spanRow({ trace_id: traceId, timestamp: new Date(cutoff.getTime() + 1_000) });
 
     await sql`INSERT INTO ${sql(TABLE)} ${sql([atCutoff, afterCutoff])}`;
 
     const rows = await sql`
       SELECT span_id FROM ${sql(TABLE)}
-      WHERE service_name = ${'excl-' + marker}
+      WHERE trace_id = ${traceId}
         AND ${sql('timestamp')} > ${cutoff.toISOString()}
     `;
 
@@ -38,44 +38,44 @@ describe('time range queries', () => {
   });
 
   test('empty result when cutoff is in the future', async () => {
-    const marker = randomHex(8);
-    const row = spanRow({ service_name: `empty-${marker}` });
+    const traceId = randomHex(32);
+    const row = spanRow({ trace_id: traceId });
     await sql`INSERT INTO ${sql(TABLE)} ${sql([row])}`;
 
     const future = new Date(Date.now() + 3_600_000).toISOString();
     const rows = await sql`
       SELECT span_id FROM ${sql(TABLE)}
-      WHERE service_name = ${'empty-' + marker}
+      WHERE trace_id = ${traceId}
         AND ${sql('timestamp')} > ${future}
     `;
     expect(rows.length).toBe(0);
   });
 
   test('LIMIT 50 when exactly 50 rows match returns exactly 50', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = Array.from({ length: 50 }, (_, i) =>
-      spanRow({ service_name: `limit50-${marker}`, timestamp: ts(-1000 + i) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-1000 + i) }),
     );
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
       SELECT span_id FROM ${sql(TABLE)}
-      WHERE service_name = ${'limit50-' + marker}
+      WHERE trace_id = ${traceId}
       LIMIT 50
     `;
     expect(result.length).toBe(50);
   });
 
   test('LIMIT 50 with 100 matching rows returns exactly 50', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = Array.from({ length: 100 }, (_, i) =>
-      spanRow({ service_name: `limit100-${marker}`, timestamp: ts(-2000 + i) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-2000 + i) }),
     );
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
       SELECT span_id FROM ${sql(TABLE)}
-      WHERE service_name = ${'limit100-' + marker}
+      WHERE trace_id = ${traceId}
       LIMIT 50
     `;
     expect(result.length).toBe(50);
@@ -84,17 +84,17 @@ describe('time range queries', () => {
 
 describe('ORDER BY', () => {
   test('ORDER BY timestamp DESC returns newest first', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = [
-      spanRow({ service_name: `order-${marker}`, timestamp: ts(-300) }),
-      spanRow({ service_name: `order-${marker}`, timestamp: ts(-100) }),
-      spanRow({ service_name: `order-${marker}`, timestamp: ts(-200) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-300) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-100) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-200) }),
     ];
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
       SELECT ${sql('timestamp')} FROM ${sql(TABLE)}
-      WHERE service_name = ${'order-' + marker}
+      WHERE trace_id = ${traceId}
       ORDER BY ${sql('timestamp')} DESC
     `;
 
@@ -104,17 +104,17 @@ describe('ORDER BY', () => {
   });
 
   test('ORDER BY timestamp ASC returns oldest first', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = [
-      spanRow({ service_name: `asc-${marker}`, timestamp: ts(-300) }),
-      spanRow({ service_name: `asc-${marker}`, timestamp: ts(-100) }),
-      spanRow({ service_name: `asc-${marker}`, timestamp: ts(-200) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-300) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-100) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-200) }),
     ];
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
       SELECT ${sql('timestamp')} FROM ${sql(TABLE)}
-      WHERE service_name = ${'asc-' + marker}
+      WHERE trace_id = ${traceId}
       ORDER BY ${sql('timestamp')} ASC
     `;
 
@@ -124,18 +124,18 @@ describe('ORDER BY', () => {
   });
 
   test('ORDER BY two columns DESC/ASC', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const sharedTs = ts(-500);
     const rows = [
-      spanRow({ service_name: `2col-${marker}`, timestamp: sharedTs, span_id: 'fff0000000000001', gen_ai_input_tokens: 10 }),
-      spanRow({ service_name: `2col-${marker}`, timestamp: sharedTs, span_id: 'aaa0000000000001', gen_ai_input_tokens: 20 }),
-      spanRow({ service_name: `2col-${marker}`, timestamp: ts(-600),  span_id: 'bbb0000000000001', gen_ai_input_tokens: 30 }),
+      spanRow({ trace_id: traceId, timestamp: sharedTs, span_id: 'fff0000000000001', gen_ai_input_tokens: 10 }),
+      spanRow({ trace_id: traceId, timestamp: sharedTs, span_id: 'aaa0000000000001', gen_ai_input_tokens: 20 }),
+      spanRow({ trace_id: traceId, timestamp: ts(-600),  span_id: 'bbb0000000000001', gen_ai_input_tokens: 30 }),
     ];
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
       SELECT span_id FROM ${sql(TABLE)}
-      WHERE service_name = ${'2col-' + marker}
+      WHERE trace_id = ${traceId}
       ORDER BY ${sql('timestamp')} DESC, span_id ASC
     `;
 
@@ -147,12 +147,12 @@ describe('ORDER BY', () => {
   });
 
   test('tied timestamps: ORDER BY timestamp DESC, span_id DESC is stable across runs', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const sharedTs = ts(-800);
     // All 10 rows have the same timestamp
     const rows = Array.from({ length: 10 }, (_, i) =>
       spanRow({
-        service_name: `tied-${marker}`,
+        trace_id: traceId,
         timestamp: sharedTs,
         span_id: `tied${String(i).padStart(12, '0')}`,
       }),
@@ -161,12 +161,12 @@ describe('ORDER BY', () => {
 
     const run1 = await sql`
       SELECT span_id FROM ${sql(TABLE)}
-      WHERE service_name = ${'tied-' + marker}
+      WHERE trace_id = ${traceId}
       ORDER BY ${sql('timestamp')} DESC, span_id DESC
     `;
     const run2 = await sql`
       SELECT span_id FROM ${sql(TABLE)}
-      WHERE service_name = ${'tied-' + marker}
+      WHERE trace_id = ${traceId}
       ORDER BY ${sql('timestamp')} DESC, span_id DESC
     `;
 
@@ -178,10 +178,10 @@ describe('ORDER BY', () => {
 
 describe('cursor pagination', () => {
   test('paginating 200 rows in pages of 50 returns all rows with no gaps or duplicates', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     // Spread rows 1 second apart so every timestamp is unique
     const rows = Array.from({ length: 200 }, (_, i) =>
-      spanRow({ service_name: `page-${marker}`, timestamp: ts(-3000 + i) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-3000 + i) }),
     );
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
@@ -196,14 +196,14 @@ describe('cursor pagination', () => {
       if (lastTs === null) {
         page = await sql`
           SELECT span_id, ${sql('timestamp')} FROM ${sql(TABLE)}
-          WHERE service_name = ${'page-' + marker}
+          WHERE trace_id = ${traceId}
           ORDER BY ${sql('timestamp')} DESC, span_id DESC
           LIMIT 50
         `;
       } else {
         page = await sql`
           SELECT span_id, ${sql('timestamp')} FROM ${sql(TABLE)}
-          WHERE service_name = ${'page-' + marker}
+          WHERE trace_id = ${traceId}
             AND (${sql('timestamp')} < ${lastTs} OR (${sql('timestamp')} = ${lastTs} AND span_id < ${lastId!}))
           ORDER BY ${sql('timestamp')} DESC, span_id DESC
           LIMIT 50
@@ -254,22 +254,22 @@ describe('SELECT column list vs SELECT *', () => {
 
 describe('COUNT', () => {
   test('COUNT before and after insert reflects the delta', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
 
     const before = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'count-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     const countBefore = Number(before[0].c);
 
     const rows = Array.from({ length: 7 }, (_, i) =>
-      spanRow({ service_name: `count-${marker}`, timestamp: ts(-4000 + i) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-4000 + i) }),
     );
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const after = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'count-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     expect(Number(after[0].c)).toBe(countBefore + 7);
   });

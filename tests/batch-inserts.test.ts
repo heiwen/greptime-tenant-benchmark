@@ -24,76 +24,76 @@ describe('batch insert patterns', () => {
   });
 
   test('10 rows — all retrieved', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = Array.from({ length: 10 }, (_, i) =>
-      spanRow({ service_name: `batch-10-${marker}`, timestamp: ts(-100 + i) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-100 + i) }),
     );
 
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'batch-10-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     expect(Number(result[0].c)).toBe(10);
   });
 
   test('100 rows — all retrieved', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = Array.from({ length: 100 }, (_, i) =>
-      spanRow({ service_name: `batch-100-${marker}`, timestamp: ts(-200 + i) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-200 + i) }),
     );
 
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'batch-100-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     expect(Number(result[0].c)).toBe(100);
   });
 
   test('500 rows — all retrieved', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = Array.from({ length: 500 }, (_, i) =>
-      spanRow({ service_name: `batch-500-${marker}`, timestamp: ts(-600 + i) }),
+      spanRow({ trace_id: traceId, timestamp: ts(-600 + i) }),
     );
 
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'batch-500-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     expect(Number(result[0].c)).toBe(500);
   }, 30_000);
 
   test('all rows have parent_span_id = NULL — no rows dropped', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = Array.from({ length: 20 }, (_, i) =>
-      spanRow({ service_name: `all-null-${marker}`, parent_span_id: null, timestamp: ts(-300 + i) }),
+      spanRow({ trace_id: traceId, parent_span_id: null, timestamp: ts(-300 + i) }),
     );
 
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'all-null-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     expect(Number(result[0].c)).toBe(20);
   });
 
   test('all rows have parent_span_id set — no rows dropped', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = Array.from({ length: 20 }, (_, i) =>
-      spanRow({ service_name: `all-set-${marker}`, parent_span_id: randomHex(16), timestamp: ts(-400 + i) }),
+      spanRow({ trace_id: traceId, parent_span_id: randomHex(16), timestamp: ts(-400 + i) }),
     );
 
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
 
     const result = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'all-set-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     expect(Number(result[0].c)).toBe(20);
   });
@@ -101,10 +101,10 @@ describe('batch insert patterns', () => {
   test('alternating NULL/non-NULL parent_span_id — known Bun.SQL bug pattern', async () => {
     // This is the exact pattern that caused the prepared-statement cache OOM.
     // With prepare:false it should work correctly.
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = Array.from({ length: 50 }, (_, i) =>
       spanRow({
-        service_name:  `alt-null-${marker}`,
+        trace_id:       traceId,
         parent_span_id: i % 2 === 0 ? null : randomHex(16),
         timestamp:      ts(-500 + i),
       }),
@@ -114,16 +114,16 @@ describe('batch insert patterns', () => {
 
     const result = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'alt-null-' + marker}
+      WHERE trace_id = ${traceId}
     `;
     expect(Number(result[0].c)).toBe(50);
   });
 
   test('alternating NULL/non-NULL — null and non-null counts are correct', async () => {
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const rows = Array.from({ length: 40 }, (_, i) =>
       spanRow({
-        service_name:   `alt-counts-${marker}`,
+        trace_id:        traceId,
         parent_span_id: i % 2 === 0 ? null : 'deadbeef00000001',
         timestamp:       ts(-700 + i),
       }),
@@ -133,12 +133,12 @@ describe('batch insert patterns', () => {
 
     const nullCount = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'alt-counts-' + marker}
+      WHERE trace_id = ${traceId}
         AND parent_span_id IS NULL
     `;
     const nonNullCount = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'alt-counts-' + marker}
+      WHERE trace_id = ${traceId}
         AND parent_span_id IS NOT NULL
     `;
 
@@ -147,19 +147,19 @@ describe('batch insert patterns', () => {
   });
 
   test('rows with varied multi-column null patterns within a batch', async () => {
-    // Some rows have span_status_message set, some have service_name set,
+    // Some rows have span_status_message set, some have gen_ai_system set,
     // some have both, some have neither. All should be stored correctly.
-    const marker = randomHex(8);
+    const traceId = randomHex(32);
     const spanId1 = randomHex(16);
     const spanId2 = randomHex(16);
     const spanId3 = randomHex(16);
     const spanId4 = randomHex(16);
 
     const rows = [
-      spanRow({ span_id: spanId1, service_name: `varied-${marker}`, span_status_message: null,     gen_ai_system: null,      timestamp: ts(-800) }),
-      spanRow({ span_id: spanId2, service_name: `varied-${marker}`, span_status_message: 'error',  gen_ai_system: null,      timestamp: ts(-801) }),
-      spanRow({ span_id: spanId3, service_name: `varied-${marker}`, span_status_message: null,     gen_ai_system: 'openai',  timestamp: ts(-802) }),
-      spanRow({ span_id: spanId4, service_name: `varied-${marker}`, span_status_message: 'retry',  gen_ai_system: 'anthropic', timestamp: ts(-803) }),
+      spanRow({ span_id: spanId1, trace_id: traceId, span_status_message: null,      gen_ai_system: null,        timestamp: ts(-800) }),
+      spanRow({ span_id: spanId2, trace_id: traceId, span_status_message: 'error',   gen_ai_system: null,        timestamp: ts(-801) }),
+      spanRow({ span_id: spanId3, trace_id: traceId, span_status_message: null,      gen_ai_system: 'openai',    timestamp: ts(-802) }),
+      spanRow({ span_id: spanId4, trace_id: traceId, span_status_message: 'retry',   gen_ai_system: 'anthropic', timestamp: ts(-803) }),
     ];
 
     await sql`INSERT INTO ${sql(TABLE)} ${sql(rows)}`;
@@ -167,7 +167,7 @@ describe('batch insert patterns', () => {
     const results = await sql`
       SELECT span_id, span_status_message, gen_ai_system
       FROM ${sql(TABLE)}
-      WHERE service_name = ${'varied-' + marker}
+      WHERE trace_id = ${traceId}
       ORDER BY ${sql('timestamp')} DESC
     `;
 

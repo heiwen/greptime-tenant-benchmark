@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { sql, createSpansTable, dropTable, spanRow, uniqueSuffix, randomHex } from './helpers.ts';
 
 const TABLE = `test_spans_${uniqueSuffix()}`;
-const MARKER = randomHex(8);
+const TRACE_ID = randomHex(32);
 
 // Fixed base: 2024-06-15 10:00:00 UTC
 const BASE = new Date('2024-06-15T10:00:00.000Z');
@@ -17,7 +17,7 @@ beforeAll(async () => {
   for (let hour = 0; hour < 4; hour++) {
     for (let i = 0; i < 5; i++) {
       rows.push(spanRow({
-        service_name:        `dt-${MARKER}`,
+        trace_id:            TRACE_ID,
         gen_ai_system:       ['openai', 'anthropic', 'google', 'cohere', 'mistral'][i],
         gen_ai_input_tokens: (hour + 1) * 10 + i,
         timestamp:           msAt(hour * 3600 + i * 60), // spread within each hour
@@ -37,7 +37,7 @@ describe('DATE_TRUNC', () => {
     const rows = await sql`
       SELECT DATE_TRUNC('hour', ${sql('timestamp')}) AS hour_bucket, COUNT(*) AS c
       FROM ${sql(TABLE)}
-      WHERE service_name = ${'dt-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
       GROUP BY hour_bucket
       ORDER BY hour_bucket
     `;
@@ -58,7 +58,7 @@ describe('DATE_TRUNC', () => {
     const rows = await sql`
       SELECT DATE_TRUNC('day', ${sql('timestamp')}) AS day_bucket, COUNT(*) AS c
       FROM ${sql(TABLE)}
-      WHERE service_name = ${'dt-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
       GROUP BY day_bucket
     `;
 
@@ -75,7 +75,7 @@ describe('DATE_TRUNC', () => {
     const rows = await sql`
       SELECT COUNT(DISTINCT DATE_TRUNC('minute', ${sql('timestamp')})) AS buckets
       FROM ${sql(TABLE)}
-      WHERE service_name = ${'dt-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
     `;
     expect(Number(rows[0].buckets)).toBe(20);
   });
@@ -87,7 +87,7 @@ describe('NOW() and INTERVAL arithmetic', () => {
     // They should NOT appear in a query filtering for the last hour relative to now.
     const rows = await sql`
       SELECT COUNT(*) AS c FROM ${sql(TABLE)}
-      WHERE service_name = ${'dt-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND ${sql('timestamp')} > NOW() - INTERVAL '1 hour'
     `;
     expect(Number(rows[0].c)).toBe(0);
@@ -95,7 +95,7 @@ describe('NOW() and INTERVAL arithmetic', () => {
 
   test('NOW() returns a timestamp close to the current time', async () => {
     const before = Date.now();
-    const rows = await sql`SELECT NOW() AS n FROM ${sql(TABLE)} WHERE service_name = ${'dt-' + MARKER} LIMIT 1`;
+    const rows = await sql`SELECT NOW() AS n FROM ${sql(TABLE)} WHERE trace_id = ${TRACE_ID} LIMIT 1`;
     const after = Date.now();
 
     const dbNow = new Date(rows[0].n as string | Date).getTime();
@@ -105,7 +105,7 @@ describe('NOW() and INTERVAL arithmetic', () => {
   });
 
   test("INTERVAL '30 minutes' added to a timestamp", async () => {
-    const row = spanRow({ service_name: `interval-${MARKER}`, timestamp: BASE });
+    const row = spanRow({ trace_id: randomHex(32), timestamp: BASE });
     await sql`INSERT INTO ${sql(TABLE)} ${sql([row])}`;
 
     const [r] = await sql`
@@ -160,7 +160,7 @@ describe('time histogram (DATE_TRUNC + GROUP BY + aggregates)', () => {
         COUNT(*) AS row_count,
         SUM(gen_ai_input_tokens) AS total_tokens
       FROM ${sql(TABLE)}
-      WHERE service_name = ${'dt-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
       GROUP BY hour_bucket
       ORDER BY hour_bucket ASC
     `;
@@ -183,7 +183,7 @@ describe('time histogram (DATE_TRUNC + GROUP BY + aggregates)', () => {
     const rows = await sql`
       SELECT DATE_TRUNC('hour', ${sql('timestamp')}) AS hour_bucket, COUNT(*) AS c
       FROM ${sql(TABLE)}
-      WHERE service_name = ${'dt-' + MARKER}
+      WHERE trace_id = ${TRACE_ID}
         AND ${sql('timestamp')} >= ${from.toISOString()}
         AND ${sql('timestamp')} < ${to.toISOString()}
       GROUP BY hour_bucket
