@@ -18,8 +18,9 @@ function escapeStr(s: string): string {
 }
 
 // Build an LP line for a spans row.
-// Schema: PRIMARY KEY (service_name) → service_name is the only TAG.
-// All other columns are fields. TIME INDEX = timestamp (ns precision).
+// Shared-table schema uses PRIMARY KEY (tenant_id), so tenant_id is the only TAG
+// when present. Per-tenant Strategy A tables have no tag columns.
+// TIME INDEX = timestamp (ns precision).
 export function spanRowToLp(tableName: string, row: Record<string, unknown>): string {
   const tsNs = new Date(row.timestamp as string).getTime() * 1_000_000;
 
@@ -42,6 +43,7 @@ export function spanRowToLp(tableName: string, row: Record<string, unknown>): st
     `gen_ai_finish_reasons="${escapeStr(row.gen_ai_finish_reasons as string)}"`,
     `gen_ai_input_messages="${escapeStr(row.gen_ai_input_messages as string)}"`,
     `gen_ai_output_messages="${escapeStr(row.gen_ai_output_messages as string)}"`,
+    `service_name="${escapeStr(row.service_name as string)}"`,
     `span_attributes="${escapeStr(row.span_attributes as string)}"`,
     `span_events="[]"`,
     `span_links="[]"`,
@@ -56,15 +58,16 @@ export function spanRowToLp(tableName: string, row: Record<string, unknown>): st
     parts.push(`span_status_message="${escapeStr(row.span_status_message as string)}"`);
   }
   // trace_state is always null in generated data — skip
-  if (row.tenant_id != null) {
-    parts.push(`tenant_id="${escapeStr(row.tenant_id as string)}"`);
-  }
+  const measurement = row.tenant_id != null
+    ? `${tableName},tenant_id=${escapeTag(row.tenant_id as string)}`
+    : tableName;
 
-  return `${tableName},service_name=${escapeTag(row.service_name as string)} ${parts.join(',')} ${tsNs}`;
+  return `${measurement} ${parts.join(',')} ${tsNs}`;
 }
 
 // Build an LP line for a conversation_items row.
-// Schema: no PRIMARY KEY columns → no TAGs. All columns are fields.
+// Shared-table schema uses PRIMARY KEY (tenant_id), so tenant_id is the only TAG
+// when present. Per-tenant Strategy A tables have no tag columns.
 // TIME INDEX = created_at (ns precision).
 export function itemRowToLp(
   tableName: string,
@@ -78,11 +81,14 @@ export function itemRowToLp(
     `id="${escapeStr(row.id as string)}"`,
     `conversation_id="${escapeStr(row.conversation_id as string)}"`,
   ];
-  if (row.tenant_id != null) fields.push(`tenant_id="${escapeStr(row.tenant_id as string)}"`);
   if (row.type != null) fields.push(`type="${escapeStr(row.type as string)}"`);
   if (row.data != null) fields.push(`data="${escapeStr(row.data as string)}"`);
 
-  return `${tableName} ${fields.join(',')} ${tsNs}`;
+  const measurement = row.tenant_id != null
+    ? `${tableName},tenant_id=${escapeTag(row.tenant_id as string)}`
+    : tableName;
+
+  return `${measurement} ${fields.join(',')} ${tsNs}`;
 }
 
 export async function lpWriteBatch(
