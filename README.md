@@ -155,8 +155,7 @@ Expect: 3 DATANODEs, 2 FRONTENDs, 1 METASRV. Each datanode should show `leader_r
 `schema:create --strategy b` generates `results/tenants.json` (if not already present) and creates the 2 shared tables. Strategy A reads that file to create its per-tenant tables.
 
 ```bash
-TENANT_COUNT=1000 bun run schema:create -- --strategy b
-TENANT_COUNT=1000 bun run schema:create -- --strategy a
+TENANT_COUNT=1000 bun run schema:create -- --strategy b && TENANT_COUNT=1000 bun run schema:create -- --strategy a
 ```
 
 If `results/tenants.json` already exists from a previous run with a different tenant count, delete it first:

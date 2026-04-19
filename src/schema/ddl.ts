@@ -71,7 +71,6 @@ export function spansTableA(tenantId: string): string {
   span_links STRING,
   TIME INDEX ("timestamp")
 )
-${PARTITION_CLAUSE_ON('trace_id')}
 WITH ('append_mode' = 'true')`;
 }
 
@@ -101,6 +100,5 @@ export function conversationItemsTableA(tenantId: string): string {
   "data" STRING,
   TIME INDEX ("created_at")
 )
-${PARTITION_CLAUSE_ON('conversation_id')}
 WITH ('append_mode' = 'true')`;
 }
