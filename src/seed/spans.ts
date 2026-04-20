@@ -109,8 +109,9 @@ export function generateSpanRow(tenantId: string | null, timestampMs: number): R
   return row;
 }
 
-function randomTimestampInRange(startMs: number, endMs: number): number {
-  return startMs + Math.random() * (endMs - startMs);
+function stratifiedTimestamp(start: number, end: number, index: number, total: number): number {
+  const slotSize = (end - start) / total;
+  return start + index * slotSize + Math.random() * slotSize;
 }
 
 async function countSpans(strategy: Strategy, tableName: string, tenantId: string): Promise<number> {
@@ -171,7 +172,8 @@ async function seedSpansForTenant(
       const thisBatch = Math.min(batchSize, seg.count - segInserted);
       const lines: string[] = [];
       for (let i = 0; i < thisBatch; i++) {
-        const row = generateSpanRow(strategy === 'b' ? tenantId : null, randomTimestampInRange(seg.start, seg.end));
+        const ts = stratifiedTimestamp(seg.start, seg.end, segInserted + i, seg.count);
+        const row = generateSpanRow(strategy === 'b' ? tenantId : null, ts);
         lines.push(spanRowToLp(tableName, row));
         if (i % 10 === 9) await Bun.sleep(0); // yield so concurrent tasks can interleave
       }

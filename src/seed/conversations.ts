@@ -47,8 +47,9 @@ export function generateItemRow(
   return row;
 }
 
-function randomTimestampInRange(startMs: number, endMs: number): string {
-  return new Date(startMs + Math.random() * (endMs - startMs)).toISOString();
+function stratifiedTimestamp(start: number, end: number, index: number, total: number): string {
+  const slotSize = (end - start) / total;
+  return new Date(start + index * slotSize + Math.random() * slotSize).toISOString();
 }
 
 // Half-width of the jitter window around a clustered conversation's anchor time.
@@ -163,7 +164,7 @@ async function seedItemsForTenant(
         const convIdx = pickConversationIndex(pool, conversationsPerTenant);
         const timestamp = pool === 'clustered'
           ? itemTimestampForConversation(anchors[convIdx], seg.start, seg.end)
-          : randomTimestampInRange(seg.start, seg.end);
+          : stratifiedTimestamp(seg.start, seg.end, segInserted + i, seg.count);
         const row = generateItemRow(strategy === 'b' ? tenantId : null, tenantConversationId(tenantId, convIdx), timestamp);
         lines.push(itemRowToLp(tableName, row, config.convPk, strategy));
         if (i % 10 === 9) await Bun.sleep(0); // yield so concurrent tasks can interleave
