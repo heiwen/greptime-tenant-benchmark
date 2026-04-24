@@ -86,7 +86,7 @@ Errors remain on 1h and 24h windows (~0.05% rate) and are unchanged in character
 |---|---|---|---|---|---|---|
 | 45 ms | 191 ms | 186 | 9 | 1,345 ms | 7,380 ms | 4.4 |
 
-Strategy A is essentially flat vs run4 (42 → 45 ms p50). Strategy B improved 2× in p50 (2,650 → 1,345 ms) and QPS (2.3 → 4.4). A leads by 42× on throughput. S2 Q-id drops the `conversation_id` filter (cursor pagination across the tenant's items globally), so B loses its partition-pruning benefit and reverts to a 16-way fan-out — but without S1's large payload columns or the `span_id` re-sort cost, the penalty lands at 42× rather than 1,300×.
+Strategy A is essentially flat vs run4 (42 → 45 ms p50). Strategy B improved 2× in p50 (2,650 → 1,345 ms) and QPS (2.3 → 4.4). A leads by 42× on throughput. Unlike S1 Q-id, this workload *does* filter on the partition column (`conversation_id = ?`) — so it should prune B to a single partition and the 42× penalty is not fan-out. Likely causes worth investigating with `EXPLAIN ANALYZE`: (a) the cursor's disjunctive predicate `(created_at < x OR (created_at = x AND id < y))` may defeat the BLOOM skipping index on `conversation_id` that the first (pure-equality) call uses cleanly; (b) the extra `tenant_id = ?` filter combined with the PK=tenant_id clustering may cause the planner to pick a suboptimal access order once the cursor predicate is present.
 
 ### Conversation history (Q-conv, S2, 10 VU)
 
@@ -156,7 +156,11 @@ A's win on S1-heavy workloads has widened; B's win would need to come from S2 pa
 
 2. **The stratified/sorted timestamp fix was the single biggest improvement.** A's Q-id p50 went from 583 ms to 32 ms — an 18× cut that cascades into the mixed-workload result. This validates the seeding-order hypothesis from the prior session.
 
-3. **Strategy B's partition column is the structural driver of every read result.** Queries whose `WHERE` clause includes the partition column (S2 Q-time's `conversation_id = ?`) prune to 1 partition and perform within 1.3× of A. Queries that don't (S1 Q-time, S1 Q-id, S2 Q-id) fan out to all 16 partitions, paying both the per-partition scan cost and a frontend merge-sort for `ORDER BY timestamp DESC`. The resulting B-penalty ladder — 1.3× (S2 Q-time, prunes) → 16× (S1 Q-time, fan-out + time prune per partition) → 42× (S2 Q-id, fan-out, no time prune) → 1,326× (S1 Q-id, fan-out + no time prune + `span_id` re-sort + wide rows) — follows directly from how many of those factors each query triggers.
+3. **Strategy B's partition column drives most but not all of the gap.** Queries whose `WHERE` clause includes the partition column prune to 1 partition and sit within 1.3–42× of A depending on other factors. Queries that don't filter the partition column fan out to all 16 partitions and merge-sort upstream, which is where the catastrophic gaps live. The approximate ladder:
+   - **1.3× — S2 Q-time** — `conversation_id = ?` prunes to 1 partition; BLOOM index on `conversation_id` makes the lookup near-point.
+   - **16× — S1 Q-time** — no `trace_id` filter, so full 16-partition fan-out; the 1-hour time bound keeps per-partition scan small.
+   - **42× — S2 Q-id** — `conversation_id = ?` prunes to 1 partition (so *not* fan-out), but the disjunctive cursor predicate likely defeats the BLOOM index after the first page, and the extra `tenant_id = ?` filter may steer the planner into a suboptimal access order. Needs `EXPLAIN ANALYZE` to confirm.
+   - **1,326× — S1 Q-id** — compounds every factor: no `trace_id` filter (fan-out), no time floor (per-partition SST pruning is weak and grows as pagination walks back), `ORDER BY timestamp DESC, span_id DESC` where `span_id` isn't in the PK (per-partition re-sort), and wide rows including 5–430 KB JSON payload columns.
 
 4. **Strategy B cursor pagination is still broken.** 38 seconds at median is 200× better than run4's 134 s but still 1,200× slower than A. Any workload touching Q-id disqualifies B.
 
