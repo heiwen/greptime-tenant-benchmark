@@ -8,15 +8,15 @@
 Single session, zero errors on all write and memory-pressure scenarios. Small error counts remain on S2 time-range reads (noted per-section). All workloads ran at 10 VUs / 120 s unless otherwise stated.
 
 Schema/seeding changes since run4:
-- Strategy A: removed the partition clause entirely.
-- Strategy B: partition key now aligned to the series key (`PARTITION ON (tenant_id)`), previously misaligned with `trace_id`.
+- Strategy A: removed the partition clause entirely (single unpartitioned table per tenant).
+- Strategy B: kept `PRIMARY KEY (tenant_id)` and the high-cardinality partition columns — S1 partitions on `trace_id`, S2 on `conversation_id`. Within each partition, one tenant's rows cluster contiguously under the tenant-id PK; across partitions, each tenant is fanned out 16-way.
 - Seeding: stratified timestamps for scattered paths, sorted timestamps within clustered conversation batches, monotonic per-item timestamp offsets in W1 inserts.
 
 ---
 
 ## Summary
 
-**Strategy A remains the recommended choice, with a much healthier profile under mixed load.** Run5's headline change is the collapse of A's Q-id cursor pagination latency (583 ms → 32 ms p50, +33× QPS) and a corresponding 8–10× improvement in mixed-workload throughput across all concurrency levels. The 134-second B Q-id catastrophe from run4 partially recovered but is still production-broken at 38 s p50. Strategy B's S1 time-range reads regressed 7–17× because each tenant's rows now live in a single partition (post partition-key fix) rather than 16-way parallel scans, trading ingest correctness for read parallelism. S2 Q-time improved materially for both strategies.
+**Strategy A remains the recommended choice, with a much healthier profile under mixed load.** Run5's headline change is the collapse of A's Q-id cursor pagination latency (583 ms → 32 ms p50, +33× QPS) and a corresponding 8–10× improvement in mixed-workload throughput across all concurrency levels. The 134-second B Q-id catastrophe from run4 partially recovered but is still production-broken at 38 s p50. Strategy B's S1 time-range reads regressed 7–17× — driven by the non-selectable partition column (`trace_id` for spans): every tenant query fans out to all 16 partitions and the frontend merge-sorts 16 streams to honour the global `ORDER BY timestamp DESC`. S2 Q-time improved materially for both strategies because the `conversation_id` equality filter prunes B to a single partition.
 
 ---
 
@@ -30,7 +30,7 @@ Schema/seeding changes since run4:
 | 10 | 8 ms | 60 ms | 1,029 | 8 ms | 28 ms | 1,153 |
 | 50 | 30 ms | 82 ms | 1,559 | 31 ms | 86 ms | 1,528 |
 
-W2 throughput improved for both strategies at every concurrency level compared to run4 — most visibly at 10 VU where B jumped from 831 to 1,153 QPS (+39%) and A from 856 to 1,029 QPS (+20%). B's p99 at 10 VU halved (68 → 28 ms), consistent with the partition-key/series-key realignment reducing per-partition write fan-out. At 50 VU B is now marginally behind A in throughput (1,528 vs 1,559) but with comparable p99 (86 vs 82 ms) — run4's 176 ms B p99 is gone.
+W2 throughput improved for both strategies at every concurrency level compared to run4 — most visibly at 10 VU where B jumped from 831 to 1,153 QPS (+39%) and A from 856 to 1,029 QPS (+20%). B's p99 at 10 VU halved (68 → 28 ms). For writes, the high-cardinality `trace_id` partition column is actively *helpful*: each batch of 5 spans (one trace) lands in a single partition, and different traces spread evenly across all 16 — producing balanced per-partition write load with no cross-partition coordination. At 50 VU B is now marginally behind A in throughput (1,528 vs 1,559) but with comparable p99 (86 vs 82 ms) — run4's 176 ms B p99 is gone.
 
 ### W1 — Conversation item insert (S2, sequential per conversation)
 
@@ -56,7 +56,7 @@ Small but consistent improvement over run4 (~10% at 10 VU). Strategies remain ef
 | 24 h | 66 ms | 160 ms | 146 | 1,066 ms | 2,087 ms | 8.9 | **16.4×** |
 | 7 d | 65 ms | 157 ms | 148 | 8,321 ms | 13,586 ms | 1.1 | **134×** |
 
-A is slightly slower than run4 (54 → 67 ms p50 on 1h) but throughput remains stable across window widths. **B regressed sharply**: 1h went from 150 → 1,058 ms p50, 7d from 514 → 8,321 ms. The regression is the direct consequence of the partition-key change: run4 scattered each tenant's rows across all 16 partitions (wrong for writes, but 16-way parallel for reads). Run5 places every tenant in exactly one partition, so a tenant query now runs on a single datanode sequentially. Writes got the intended correctness; reads paid the parallelism bill.
+A is slightly slower than run4 (54 → 67 ms p50 on 1h) but throughput remains stable across window widths. **B regressed sharply**: 1h went from 150 → 1,058 ms p50, 7d from 514 → 8,321 ms. The query filters on `tenant_id` and `timestamp` but *not* on `trace_id`, so B's planner cannot prune any of the 16 partitions — each query fans out to all datanodes and the frontend merge-sorts 16 streams to honour `ORDER BY timestamp DESC`. Within each partition, the tenant's ~31k rows must be scanned (PK=tenant_id means the rows are contiguous, but every partition contains some rows for every tenant). Why worse than run4: the combination of stratified seeding (more, narrower-time-range SSTs per partition), increased per-query planning overhead from the 16-way fan-out, and the `service_name` column no longer being the series key (in run4 that skipping-BLOOM attribute probably helped prune SST blocks) all compound.
 
 #### Cursor pagination (Q-id, S1, 10 VU)
 
@@ -64,7 +64,7 @@ A is slightly slower than run4 (54 → 67 ms p50 on 1h) but throughput remains s
 |---|---|---|---|---|---|---|
 | 32 ms | 117 ms | 252 | 37,955 ms | 89,485 ms | 0.19 | **1,326× (QPS)** |
 
-**Strategy A's cursor pagination is transformed**: p50 dropped from 583 ms to 32 ms (18× faster) and QPS rose from 7.6 to 252 (33× higher). Stratified seeding timestamps mean recent rows cluster in recent SSTs instead of being smeared across every SST in the table — the cursor range predicate now prunes most files. Strategy B improved too (134 s → 38 s p50, 0.08 → 0.19 QPS) but remains production-broken: every query still takes over half a minute.
+**Strategy A's cursor pagination is transformed**: p50 dropped from 583 ms to 32 ms (18× faster) and QPS rose from 7.6 to 252 (33× higher). Stratified seeding timestamps mean recent rows cluster in recent SSTs instead of being smeared across every SST in the table — the cursor range predicate now prunes most files. Strategy B improved too (134 s → 38 s p50, 0.08 → 0.19 QPS) but remains production-broken: every query still takes over half a minute. Q-id pays B's full tax: (1) no `trace_id` filter → all 16 partitions fan out; (2) no time lower bound (only `timestamp < cursor_ts`) → SST time-pruning is weak and the working set grows as pagination walks back through 18 months of history; (3) the tie-breaker `span_id` is not part of the PK, so each partition re-sorts candidate rows on `(timestamp DESC, span_id DESC)` before merging upstream.
 
 ### S2 — Conversation items
 
@@ -76,7 +76,7 @@ A is slightly slower than run4 (54 → 67 ms p50 on 1h) but throughput remains s
 | 24 h | 16 ms | 50 ms | 545 | 36 | 23 ms | 48 ms | 422 | 20 |
 | 7 d | 28 ms | 88 ms | 294 | 5 | 39 ms | 127 ms | 220 | 2 |
 
-Both strategies improved substantially on S2 Q-time. B at 24h window went from 142 → 422 QPS (3×); 7d went from 59 → 220 QPS (3.7×). A/B ratio narrowed from 2.4–6.6× (run4) to 1.3–1.8× (run5) — S2 access is now roughly comparable between strategies. S2 row layout (smaller rows, BLOOM on `conversation_id`, no heavy JSON payload columns) benefits more from the better partition alignment than S1 does.
+Both strategies improved substantially on S2 Q-time. B at 24h window went from 142 → 422 QPS (3×); 7d went from 59 → 220 QPS (3.7×). A/B ratio narrowed from 2.4–6.6× (run4) to 1.3–1.8× (run5) — S2 access is now roughly comparable between strategies. The reason this workload escapes B's fan-out tax is that S2 is partitioned on `conversation_id` *and* the query filters `conversation_id = ?` — the planner prunes to a single partition. Smaller S2 rows and no JSON payload columns compound the advantage, but the pruning is what keeps B within 1.3× of A.
 
 Errors remain on 1h and 24h windows (~0.05% rate) and are unchanged in character from run4.
 
@@ -86,7 +86,7 @@ Errors remain on 1h and 24h windows (~0.05% rate) and are unchanged in character
 |---|---|---|---|---|---|---|
 | 45 ms | 191 ms | 186 | 9 | 1,345 ms | 7,380 ms | 4.4 |
 
-Strategy A is essentially flat vs run4 (42 → 45 ms p50). Strategy B improved 2× in p50 (2,650 → 1,345 ms) and QPS (2.3 → 4.4). A leads by 42× on throughput.
+Strategy A is essentially flat vs run4 (42 → 45 ms p50). Strategy B improved 2× in p50 (2,650 → 1,345 ms) and QPS (2.3 → 4.4). A leads by 42× on throughput. S2 Q-id drops the `conversation_id` filter (cursor pagination across the tenant's items globally), so B loses its partition-pruning benefit and reverts to a 16-way fan-out — but without S1's large payload columns or the `span_id` re-sort cost, the penalty lands at 42× rather than 1,300×.
 
 ### Conversation history (Q-conv, S2, 10 VU)
 
@@ -156,7 +156,7 @@ A's win on S1-heavy workloads has widened; B's win would need to come from S2 pa
 
 2. **The stratified/sorted timestamp fix was the single biggest improvement.** A's Q-id p50 went from 583 ms to 32 ms — an 18× cut that cascades into the mixed-workload result. This validates the seeding-order hypothesis from the prior session.
 
-3. **Strategy B's partition-key fix helped writes and hurt tenant-scoped reads.** Aligning the partition key with the series key was necessary for write correctness, but it collapsed read parallelism from 16-way to 1-way per tenant. S1 Q-time regressed 7–17×. S2 Q-time paradoxically improved because the smaller S2 rows benefit more from reduced cross-partition overhead than they lose from single-partition scanning.
+3. **Strategy B's partition column is the structural driver of every read result.** Queries whose `WHERE` clause includes the partition column (S2 Q-time's `conversation_id = ?`) prune to 1 partition and perform within 1.3× of A. Queries that don't (S1 Q-time, S1 Q-id, S2 Q-id) fan out to all 16 partitions, paying both the per-partition scan cost and a frontend merge-sort for `ORDER BY timestamp DESC`. The resulting B-penalty ladder — 1.3× (S2 Q-time, prunes) → 16× (S1 Q-time, fan-out + time prune per partition) → 42× (S2 Q-id, fan-out, no time prune) → 1,326× (S1 Q-id, fan-out + no time prune + `span_id` re-sort + wide rows) — follows directly from how many of those factors each query triggers.
 
 4. **Strategy B cursor pagination is still broken.** 38 seconds at median is 200× better than run4's 134 s but still 1,200× slower than A. Any workload touching Q-id disqualifies B.
 
@@ -164,4 +164,4 @@ A's win on S1-heavy workloads has widened; B's win would need to come from S2 pa
 
 6. **S2 time-range errors persist but halved on A 1h.** Run4 A 1h had 51 errors; run5 has 29. B 1h went from 30 to 15. Error rate remains ~0.05%; still worth a bug-report pass once the mechanism is identified.
 
-7. **Next step: reproduce B's Q-id in isolation with a focused profiler run.** Even post-fix, 38 s p50 on a 10 VU cursor workload at 100 tenants means there is something structurally wrong with how the shared-table sort order interacts with `(tenant_id, timestamp DESC, id DESC)` pagination. This remains the blocker preventing B from being recommended at any scale.
+7. **Next step: isolate the contributions in B's S1 Q-id.** Two targeted experiments would decompose the 1,326× gap: (a) add `AND trace_id = ?` to Q-id (synthetic, not representative of production) — should collapse to roughly the S2 Q-time ratio by pruning to 1 partition; (b) add `AND timestamp > cursor_ts - INTERVAL '1 day'` — should drop B by 10–50× from SST time-pruning alone, independent of fan-out. The outcome determines whether the fix direction is "repartition on `tenant_id`" (with its known write hot-spot risk) or "change the query shape to include a time floor". Until one of these paths is chosen, B remains disqualified by Q-id at any scale.
