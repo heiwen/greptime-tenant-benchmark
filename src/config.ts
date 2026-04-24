@@ -28,9 +28,12 @@ export const config = {
   // shrinks total seeded rows proportionally without touching the hot data.
   // e.g. HISTORICAL_SHARE=0.65 seeds 90% of the target rows per tenant.
   historicalShare: parseFloat(process.env.HISTORICAL_SHARE ?? '0.60'),
-  // Add conversation_id to the PRIMARY KEY of conversation_items tables.
-  // Physically co-locates items per conversation in SST files, making q-conv-scattered fast
-  // at the cost of higher series cardinality (50k series/tenant vs 1).
-  // Run with CONV_PK=false (default) and CONV_PK=true to compare.
-  convPk: (process.env.CONV_PK ?? 'false') === 'true',
+  // Add the per-item cluster column to the PRIMARY KEY of each table:
+  //   spans              → adds trace_id
+  //   conversation_items → adds conversation_id
+  // Physically co-locates rows per trace / per conversation in SST files. For Strategy B
+  // this is appended after tenant_id; for Strategy A it becomes the only PK column.
+  // Trades higher series cardinality for cheaper per-item scans.
+  // Run with ITEM_PK=false (default) and ITEM_PK=true to compare.
+  itemPk: (process.env.ITEM_PK ?? 'false') === 'true',
 };

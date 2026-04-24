@@ -1,4 +1,29 @@
+import { config } from '../config.js';
 import { PARTITION_CLAUSE_ON } from './partitions.js';
+
+// Emit the PRIMARY KEY clause for a table.
+//   withTenantId = true  → the table has a tenant_id column (shared-table schema);
+//                          tenant_id is the first PK column.
+//   itemPk       = true  → append the per-item cluster column (passed in) to the PK
+//                          so rows for one trace/conversation physically co-locate.
+// Returns `""` when the PK would be empty (no tenant column AND itemPk disabled).
+function primaryKey(withTenantId: boolean, clusterCol: string): string {
+  const cols: string[] = [];
+  if (withTenantId) cols.push('tenant_id');
+  if (config.itemPk) cols.push(clusterCol);
+  return cols.length ? `,\n  PRIMARY KEY (${cols.join(', ')})` : '';
+}
+
+// Emit the column definition for a per-item cluster column (e.g. trace_id,
+// conversation_id). When itemPk is on, the column is in the PK and is TAG-indexed
+// automatically, so a SKIPPING BLOOM would be redundant. When off, we add the BLOOM
+// to accelerate equality lookups on the column.
+function clusterColumn(name: string, type: string): string {
+  if (config.itemPk) {
+    return `${name} ${type} NOT NULL`;
+  }
+  return `${name} ${type} NOT NULL SKIPPING INDEX WITH(type='BLOOM', granularity=10240)`;
+}
 
 export function spansTableA(tenantId: string): string {
   const suffix = tenantId.replace(/-/g, '');
@@ -7,7 +32,7 @@ export function spansTableA(tenantId: string): string {
   "timestamp" TIMESTAMP(9) NOT NULL,
   timestamp_end TIMESTAMP(9),
   duration_nano BIGINT UNSIGNED,
-  trace_id VARCHAR(32) NOT NULL SKIPPING INDEX WITH(type='BLOOM', granularity=10240),
+  ${clusterColumn('trace_id', 'VARCHAR(32)')},
   span_id VARCHAR(16) NOT NULL,
   parent_span_id VARCHAR(16),
   span_name VARCHAR(256),
@@ -31,7 +56,7 @@ export function spansTableA(tenantId: string): string {
   span_attributes STRING,
   span_events STRING,
   span_links STRING,
-  TIME INDEX ("timestamp")
+  TIME INDEX ("timestamp")${primaryKey(false, 'trace_id')}
 )
 WITH ('append_mode' = 'true')`;
 }
@@ -42,7 +67,7 @@ export function spansTableB(): string {
   "timestamp" TIMESTAMP(9) NOT NULL,
   timestamp_end TIMESTAMP(9),
   duration_nano BIGINT UNSIGNED,
-  trace_id VARCHAR(32) NOT NULL SKIPPING INDEX WITH(type='BLOOM', granularity=10240),
+  ${clusterColumn('trace_id', 'VARCHAR(32)')},
   span_id VARCHAR(16) NOT NULL,
   parent_span_id VARCHAR(16),
   span_name VARCHAR(256),
@@ -66,8 +91,7 @@ export function spansTableB(): string {
   span_attributes STRING,
   span_events STRING,
   span_links STRING,
-  TIME INDEX ("timestamp"),
-  PRIMARY KEY (tenant_id)
+  TIME INDEX ("timestamp")${primaryKey(true, 'trace_id')}
 )
 ${PARTITION_CLAUSE_ON('trace_id')}
 WITH ('append_mode' = 'true')`;
@@ -78,11 +102,11 @@ export function conversationItemsTableA(tenantId: string): string {
   const tableName = `conversation_items_${suffix}`;
   return `CREATE TABLE IF NOT EXISTS ${tableName} (
   "id" VARCHAR(36) NOT NULL,
-  conversation_id VARCHAR(36) NOT NULL SKIPPING INDEX WITH(granularity=10240, type='BLOOM'),
-  created_at TIMESTAMP(3) NOT NULL ,
+  ${clusterColumn('conversation_id', 'VARCHAR(36)')},
+  created_at TIMESTAMP(3) NOT NULL,
   "type" VARCHAR(64),
   "data" STRING,
-  TIME INDEX ("created_at")
+  TIME INDEX ("created_at")${primaryKey(false, 'conversation_id')}
 )
 WITH ('append_mode' = 'true')`;
 }
@@ -91,12 +115,11 @@ export function conversationItemsTableB(): string {
   return `CREATE TABLE IF NOT EXISTS conversation_items (
   tenant_id VARCHAR(36) NOT NULL INVERTED INDEX,
   "id" VARCHAR(36) NOT NULL,
-  conversation_id VARCHAR(36) NOT NULL SKIPPING INDEX WITH(granularity=10240, type='BLOOM'),
+  ${clusterColumn('conversation_id', 'VARCHAR(36)')},
   created_at TIMESTAMP(3) NOT NULL,
   "type" VARCHAR(64),
   "data" STRING,
-  TIME INDEX ("created_at"),
-  PRIMARY KEY (tenant_id)
+  TIME INDEX ("created_at")${primaryKey(true, 'conversation_id')}
 )
 ${PARTITION_CLAUSE_ON('conversation_id')}
 WITH ('append_mode' = 'true')`;

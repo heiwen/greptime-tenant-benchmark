@@ -18,18 +18,25 @@ function escapeStr(s: string): string {
 }
 
 // Build an LP line for a spans row.
-// Shared-table schema uses PRIMARY KEY (tenant_id), so tenant_id is the only TAG
-// when present. Per-tenant Strategy A tables have no tag columns.
+// TAGs map to PRIMARY KEY columns in GreptimeDB. tenant_id is a TAG when present
+// (Strategy B). trace_id is a TAG when itemPk is enabled (it joins the PK).
 // TIME INDEX = timestamp (ns precision).
-export function spanRowToLp(tableName: string, row: Record<string, unknown>): string {
+export function spanRowToLp(
+  tableName: string,
+  row: Record<string, unknown>,
+  itemPk: boolean,
+): string {
   const tsNs = new Date(row.timestamp as string).getTime() * 1_000_000;
+
+  const tags: string[] = [];
+  if (row.tenant_id != null) tags.push(`tenant_id=${escapeTag(row.tenant_id as string)}`);
+  if (itemPk) tags.push(`trace_id=${escapeTag(row.trace_id as string)}`);
 
   const parts: string[] = [
     `duration_nano=${row.duration_nano}u`,
     `gen_ai_input_tokens=${row.gen_ai_input_tokens}i`,
     `gen_ai_output_tokens=${row.gen_ai_output_tokens}i`,
     `gen_ai_total_tokens=${row.gen_ai_total_tokens}i`,
-    `trace_id="${escapeStr(row.trace_id as string)}"`,
     `span_id="${escapeStr(row.span_id as string)}"`,
     `span_name="${escapeStr(row.span_name as string)}"`,
     `span_kind="${escapeStr(row.span_kind as string)}"`,
@@ -48,6 +55,9 @@ export function spanRowToLp(tableName: string, row: Record<string, unknown>): st
     `span_events="[]"`,
     `span_links="[]"`,
   ];
+  if (!itemPk) {
+    parts.unshift(`trace_id="${escapeStr(row.trace_id as string)}"`);
+  }
 
   // timestamp_end is a secondary TIMESTAMP column — LP only supports one timestamp position
   // (the TIME INDEX). Skip it; the column is nullable and unused by benchmark queries.
@@ -58,36 +68,32 @@ export function spanRowToLp(tableName: string, row: Record<string, unknown>): st
     parts.push(`span_status_message="${escapeStr(row.span_status_message as string)}"`);
   }
   // trace_state is always null in generated data — skip
-  const measurement = row.tenant_id != null
-    ? `${tableName},tenant_id=${escapeTag(row.tenant_id as string)}`
-    : tableName;
 
+  const measurement = tags.length ? `${tableName},${tags.join(',')}` : tableName;
   return `${measurement} ${parts.join(',')} ${tsNs}`;
 }
 
 // Build an LP line for a conversation_items row.
-// Shared-table schema uses PRIMARY KEY (tenant_id), so tenant_id is the only TAG
-// when present. Per-tenant Strategy A tables have no tag columns.
+// TAGs map to PRIMARY KEY columns. tenant_id is a TAG when present (Strategy B).
+// conversation_id is a TAG when itemPk is enabled (it joins the PK).
 // TIME INDEX = created_at (ns precision).
 export function itemRowToLp(
   tableName: string,
   row: Record<string, unknown>,
-  _convPk: boolean,
-  _strategy: 'a' | 'b',
+  itemPk: boolean,
 ): string {
   const tsNs = new Date(row.created_at as string).getTime() * 1_000_000;
 
-  const fields: string[] = [
-    `id="${escapeStr(row.id as string)}"`,
-    `conversation_id="${escapeStr(row.conversation_id as string)}"`,
-  ];
+  const tags: string[] = [];
+  if (row.tenant_id != null) tags.push(`tenant_id=${escapeTag(row.tenant_id as string)}`);
+  if (itemPk) tags.push(`conversation_id=${escapeTag(row.conversation_id as string)}`);
+
+  const fields: string[] = [`id="${escapeStr(row.id as string)}"`];
+  if (!itemPk) fields.push(`conversation_id="${escapeStr(row.conversation_id as string)}"`);
   if (row.type != null) fields.push(`type="${escapeStr(row.type as string)}"`);
   if (row.data != null) fields.push(`data="${escapeStr(row.data as string)}"`);
 
-  const measurement = row.tenant_id != null
-    ? `${tableName},tenant_id=${escapeTag(row.tenant_id as string)}`
-    : tableName;
-
+  const measurement = tags.length ? `${tableName},${tags.join(',')}` : tableName;
   return `${measurement} ${fields.join(',')} ${tsNs}`;
 }
 

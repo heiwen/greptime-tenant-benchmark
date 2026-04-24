@@ -166,7 +166,7 @@ async function seedItemsForTenant(
           ? itemTimestampForConversation(anchors[convIdx], seg.start, seg.end)
           : stratifiedTimestamp(seg.start, seg.end, segInserted + i, seg.count);
         const row = generateItemRow(strategy === 'b' ? tenantId : null, tenantConversationId(tenantId, convIdx), timestamp);
-        rows.push({ timestamp, line: itemRowToLp(tableName, row, config.convPk, strategy) });
+        rows.push({ timestamp, line: itemRowToLp(tableName, row, config.itemPk) });
         if (i % 10 === 9) await Bun.sleep(0); // yield so concurrent tasks can interleave
       }
       rows.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1);

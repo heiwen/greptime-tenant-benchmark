@@ -155,7 +155,7 @@ Expect: 3 DATANODEs, 2 FRONTENDs, 1 METASRV. Each datanode should show `leader_r
 `schema:create --strategy b` generates `results/tenants.json` (if not already present) and creates the 2 shared tables. Strategy A reads that file to create its per-tenant tables.
 
 ```bash
-TENANT_COUNT=1000 bun run schema:create -- --strategy b && TENANT_COUNT=1000 bun run schema:create -- --strategy a
+ITEM_PK=true TENANT_COUNT=1000 bun run schema:create -- --strategy b && ITEM_PK=true TENANT_COUNT=1000 bun run schema:create -- --strategy a
 ```
 
 If `results/tenants.json` already exists from a previous run with a different tenant count, delete it first:
@@ -166,13 +166,15 @@ rm results/tenants.json
 
 For the baseline 100-tenant run omit the env var (default is 100).
 
+**Schema variant:** set `ITEM_PK=true` to append each table's per-item cluster column to its PRIMARY KEY (`trace_id` on `spans`, `conversation_id` on `conversation_items`). This co-locates rows sharing a trace/conversation inside SST files, which speeds up per-item fetches (`q-conv-*`, `q-id-*`) at the cost of higher series cardinality. The same flag must be set at every subsequent step — schema, seed, and bench — because the line-protocol writer maps tags to PK columns, so seeding must agree with the DDL on which columns are tags.
+
 ### Step 3 — Seed data
 
 Full scale on m7i-flex.8xlarge:
 
 ```bash
 tmux new -s seed
-bun run seed -- --strategy b && bun run seed -- --strategy a
+ITEM_PK=true bun run seed -- --strategy b && ITEM_PK=true bun run seed -- --strategy a
 ```
 
 Detach so the seed keeps running after you disconnect: `Ctrl+B` then `D`.
@@ -203,6 +205,7 @@ Seeding is CPU-bound (row generation) and single-threaded per process. Use `--wo
 For a **smoke run** to verify everything works before committing to full seeding:
 
 ```bash
+ITEM_PK=false \
 TENANT_COUNT=10 \
 SPANS_PER_TENANT=5000 \
 ITEMS_PER_TENANT=10000 \
@@ -215,14 +218,14 @@ bun run seed -- --strategy b
 For the **1k-tenant run** (same per-tenant density, ~4 TB compressed):
 
 ```bash
-TENANT_COUNT=1000 bun run seed -- --strategy b && TENANT_COUNT=1000 bun run seed -- --strategy a
+ITEM_PK=false TENANT_COUNT=1000 bun run seed -- --strategy b && ITEM_PK=false TENANT_COUNT=1000 bun run seed -- --strategy a
 ```
 
 For the **10k-tenant run** (reduced density so Q-time 1h returns ~50 rows, ~3.5 TB compressed):
 
 ```bash
-TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy b
-TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy a
+ITEM_PK=false TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy b
+ITEM_PK=false TENANT_COUNT=10000 SPARSE_MULTIPLIER=0.2 bun run seed -- --strategy a
 ```
 
 ### Step 4 — Run the benchmark
@@ -307,57 +310,6 @@ done
 
 ---
 
-## CONV_PK comparison
-
-`CONV_PK=true` adds `conversation_id` to the PRIMARY KEY of `conversation_items`, physically co-locating each conversation's items within SST files. This makes `q-conv-scattered` (multi-session conversations with items spread across 18 months) significantly faster at the cost of higher series cardinality (50k series/tenant instead of 1).
-
-The `q-conv-clustered` scenario (single-session conversations) and all Q-time S2 queries are expected to be unaffected — the time-range pruning path is unchanged.
-
-To isolate this variable, run both strategies at reduced scale (seeding takes ~10 minutes):
-
-```bash
-# Baseline — no PK
-docker compose down -v && docker compose up -d
-CONV_PK=false \
-TENANT_COUNT=10 \
-SPANS_PER_TENANT=5000 \
-ITEMS_PER_TENANT=100000 \
-CONVERSATIONS_PER_TENANT=5000 \
-bun run schema:create -- --strategy b && bun run schema:create -- --strategy a
-CONV_PK=false TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
-  bun run seed -- --strategy b
-CONV_PK=false TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
-  bun run seed -- --strategy a
-CONV_PK=false TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
-  bun run bench -- --scenario q-conv-clustered-10vu,q-conv-scattered-10vu,q-time-1h-10vu-s2,q-time-24h-10vu-s2 --no-warmup --skip-scrape
-
-# With PK — repeat on a clean cluster
-docker compose down -v && docker compose up -d
-CONV_PK=true \
-TENANT_COUNT=10 \
-SPANS_PER_TENANT=5000 \
-ITEMS_PER_TENANT=100000 \
-CONVERSATIONS_PER_TENANT=5000 \
-bun run schema:create -- --strategy b && bun run schema:create -- --strategy a
-CONV_PK=true TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
-  bun run seed -- --strategy b
-CONV_PK=true TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
-  bun run seed -- --strategy a
-CONV_PK=true TENANT_COUNT=10 SPANS_PER_TENANT=5000 ITEMS_PER_TENANT=100000 CONVERSATIONS_PER_TENANT=5000 \
-  bun run bench -- --scenario q-conv-clustered-10vu,q-conv-scattered-10vu,q-time-1h-10vu-s2,q-time-24h-10vu-s2 --no-warmup --skip-scrape
-```
-
-Key metrics to compare across the two runs:
-
-| Scenario | Expected with `CONV_PK=true` |
-|---|---|
-| `q-conv-scattered` | Significantly faster (binary search within SST vs full scan) |
-| `q-conv-clustered` | Similar (BLOOM index already effective for clustered data) |
-| `q-time-1h-10vu-s2` | Similar (time-range pruning is unaffected by PK) |
-| `q-time-24h-10vu-s2` | Similar |
-
----
-
 ## Teardown
 
 On the instance — stop the cluster:
@@ -409,5 +361,5 @@ Note: the public IP changes after a stop/start. Re-run the `describe-instances` 
 | `SEED_WORKERS` | `10` | Default worker processes for the seed orchestrator; override with `--workers` |
 | `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant proportionally |
 | `HISTORICAL_SHARE` | `0.60` | Fraction of rows seeded as historical (>4 months old); reduce to shrink disk usage without affecting hot data |
-| `CONV_PK` | `false` | Add `conversation_id` to the PRIMARY KEY of `conversation_items` tables. See [CONV_PK comparison](#conv_pk-comparison) below. |
+| `ITEM_PK` | `false` | Append the per-item cluster column to each table's PRIMARY KEY (`trace_id` for spans, `conversation_id` for conversation_items). Must be set identically at schema, seed, and bench steps. See [Step 2](#step-2--create-schemas). |
 | `RESULTS_DIR` | `./results` | Output directory for CSVs |

@@ -174,7 +174,7 @@ async function seedSpansForTenant(
       for (let i = 0; i < thisBatch; i++) {
         const ts = stratifiedTimestamp(seg.start, seg.end, segInserted + i, seg.count);
         const row = generateSpanRow(strategy === 'b' ? tenantId : null, ts);
-        lines.push(spanRowToLp(tableName, row));
+        lines.push(spanRowToLp(tableName, row, config.itemPk));
         if (i % 10 === 9) await Bun.sleep(0); // yield so concurrent tasks can interleave
       }
       await lpWriteBatch(lpUrl, lines);
