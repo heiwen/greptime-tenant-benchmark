@@ -29,46 +29,55 @@ async function main(): Promise<void> {
   console.log(`conversation_id = ${conversationId}`);
 
   const tableA = tenantTable('conversation_items', tenantId);
+  const uuidRe = /^[0-9a-f-]{36}$/i;
+  if (!uuidRe.test(tenantId) || !uuidRe.test(conversationId)) {
+    throw new Error('Refusing to inline non-UUID identifiers into SQL');
+  }
 
-  divider('B: Q-conv (SELECT *, ORDER BY created_at ASC, no LIMIT)');
-  printRows(await sql`
-    EXPLAIN ANALYZE
-    SELECT "id", conversation_id, created_at, "type", "data"
-    FROM conversation_items
-    WHERE tenant_id = ${tenantId}
-      AND conversation_id = ${conversationId}
-    ORDER BY created_at ASC
-  `);
+  const run = async (label: string, query: string) => {
+    divider(label);
+    printRows(await sql.unsafe(query));
+  };
 
-  divider('B: Q-id first page (ORDER BY created_at DESC, id DESC, LIMIT 50)');
-  printRows(await sql`
-    EXPLAIN ANALYZE
-    SELECT "id", conversation_id, created_at, "type"
-    FROM conversation_items
-    WHERE tenant_id = ${tenantId}
-      AND conversation_id = ${conversationId}
-    ORDER BY created_at DESC, "id" DESC
-    LIMIT 50
-  `);
+  await run(
+    'B: Q-conv (SELECT *, ORDER BY created_at ASC, no LIMIT)',
+    `EXPLAIN ANALYZE
+     SELECT "id", conversation_id, created_at, "type", "data"
+     FROM conversation_items
+     WHERE tenant_id = '${tenantId}'
+       AND conversation_id = '${conversationId}'
+     ORDER BY created_at ASC`
+  );
 
-  divider(`A: Q-conv on ${tableA}`);
-  printRows(await sql`
-    EXPLAIN ANALYZE
-    SELECT "id", conversation_id, created_at, "type", "data"
-    FROM ${sql(tableA)}
-    WHERE conversation_id = ${conversationId}
-    ORDER BY created_at ASC
-  `);
+  await run(
+    'B: Q-id first page (ORDER BY created_at DESC, id DESC, LIMIT 50)',
+    `EXPLAIN ANALYZE
+     SELECT "id", conversation_id, created_at, "type"
+     FROM conversation_items
+     WHERE tenant_id = '${tenantId}'
+       AND conversation_id = '${conversationId}'
+     ORDER BY created_at DESC, "id" DESC
+     LIMIT 50`
+  );
 
-  divider(`A: Q-id first page on ${tableA}`);
-  printRows(await sql`
-    EXPLAIN ANALYZE
-    SELECT "id", conversation_id, created_at, "type"
-    FROM ${sql(tableA)}
-    WHERE conversation_id = ${conversationId}
-    ORDER BY created_at DESC, "id" DESC
-    LIMIT 50
-  `);
+  await run(
+    `A: Q-conv on ${tableA}`,
+    `EXPLAIN ANALYZE
+     SELECT "id", conversation_id, created_at, "type", "data"
+     FROM ${tableA}
+     WHERE conversation_id = '${conversationId}'
+     ORDER BY created_at ASC`
+  );
+
+  await run(
+    `A: Q-id first page on ${tableA}`,
+    `EXPLAIN ANALYZE
+     SELECT "id", conversation_id, created_at, "type"
+     FROM ${tableA}
+     WHERE conversation_id = '${conversationId}'
+     ORDER BY created_at DESC, "id" DESC
+     LIMIT 50`
+  );
 
   await sql.end();
 }
