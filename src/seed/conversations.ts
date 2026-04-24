@@ -158,7 +158,7 @@ async function seedItemsForTenant(
     let segInserted = 0;
     while (segInserted < seg.count) {
       const thisBatch = Math.min(batchSize, seg.count - segInserted);
-      const lines: string[] = [];
+      const rows: { timestamp: string; line: string }[] = [];
       for (let i = 0; i < thisBatch; i++) {
         const pool = seg.clusteredOk && Math.random() < 0.5 ? 'clustered' : 'scattered';
         const convIdx = pickConversationIndex(pool, conversationsPerTenant);
@@ -166,9 +166,11 @@ async function seedItemsForTenant(
           ? itemTimestampForConversation(anchors[convIdx], seg.start, seg.end)
           : stratifiedTimestamp(seg.start, seg.end, segInserted + i, seg.count);
         const row = generateItemRow(strategy === 'b' ? tenantId : null, tenantConversationId(tenantId, convIdx), timestamp);
-        lines.push(itemRowToLp(tableName, row, config.convPk, strategy));
+        rows.push({ timestamp, line: itemRowToLp(tableName, row, config.convPk, strategy) });
         if (i % 10 === 9) await Bun.sleep(0); // yield so concurrent tasks can interleave
       }
+      rows.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1);
+      const lines = rows.map(r => r.line);
       await lpWriteBatch(lpUrl, lines);
       segInserted += thisBatch;
       onBatch?.(thisBatch);
