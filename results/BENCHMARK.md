@@ -1,4 +1,4 @@
-# ITEM_PK schema variant — benchmark summary for GreptimeDB team
+# Benchmark summary
 
 ## What we're modelling
 
@@ -39,7 +39,7 @@ At 100 tenants Strategy A ends up with 200 table objects; Strategy B has 2. That
 
 ## Baseline result (before the PK experiment)
 
-With the run5 schema (no PK on A, `PRIMARY KEY (tenant_id)` on B, BLOOM on the per-item cluster column in both), **Strategy A wins on every read workload** and the two strategies are effectively tied on writes:
+With the baseline schema (no PK on A, `PRIMARY KEY (tenant_id)` on B, BLOOM on the per-item cluster column in both), **Strategy A wins on every read workload** and the two strategies are effectively tied on writes:
 
 | Workload | A QPS | B QPS | A / B |
 |---|---|---|---|
@@ -58,20 +58,20 @@ The `ITEM_PK` experiment below was one attempt to close Strategy B's read gap: a
 
 ## ITEM_PK configurations compared
 
-The only schema difference between run5 and run6 is the `ITEM_PK` env flag. When enabled, it appends the per-item cluster column to each table's `PRIMARY KEY` and — because a column in the PK is already a TAG — drops its `SKIPPING INDEX WITH(type='BLOOM')` as redundant.
+The only schema difference from the baseline is the `ITEM_PK` env flag. When enabled, it appends the per-item cluster column to each table's `PRIMARY KEY` and — because a column in the PK is already a TAG — drops its `SKIPPING INDEX WITH(type='BLOOM')` as redundant.
 
-| | Run5 (`ITEM_PK=false`) | Run6 (`ITEM_PK=true`) |
+| | `ITEM_PK=false` (baseline) | `ITEM_PK=true` |
 |---|---|---|
 | **A — spans** | No PK; `trace_id ... SKIPPING INDEX BLOOM` | `PRIMARY KEY (trace_id)`; BLOOM dropped |
 | **A — conversation_items** | No PK; `conversation_id ... SKIPPING INDEX BLOOM` | `PRIMARY KEY (conversation_id)`; BLOOM dropped |
 | **B — spans** | `PRIMARY KEY (tenant_id)`; `trace_id ... SKIPPING INDEX BLOOM`; `PARTITION ON (trace_id)` | `PRIMARY KEY (tenant_id, trace_id)`; BLOOM dropped; partition unchanged |
 | **B — conversation_items** | `PRIMARY KEY (tenant_id)`; `conversation_id ... SKIPPING INDEX BLOOM`; `PARTITION ON (conversation_id)` | `PRIMARY KEY (tenant_id, conversation_id)`; BLOOM dropped; partition unchanged |
 
-Everything else (cluster, seed, scenarios, VU counts, durations, data volume) is identical between the two runs.
+Everything else (cluster, seed, scenarios, VU counts, durations, data volume) is identical between the two configurations.
 
 ## Result
 
-Headline deltas, run6 vs run5 (QPS unless noted), same cluster, same data, same workload:
+Headline deltas, `ITEM_PK=true` vs baseline (QPS unless noted), same cluster, same data, same workload:
 
 | Workload | Strategy A | Strategy B |
 |---|---|---|
