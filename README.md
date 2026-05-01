@@ -166,7 +166,7 @@ rm results/tenants.json
 
 For the baseline 100-tenant run omit the env var (default is 100).
 
-**Schema variant:** set `ITEM_PK=true` to append each table's per-item cluster column to its PRIMARY KEY (`trace_id` on `spans`, `conversation_id` on `conversation_items`). This co-locates rows sharing a trace/conversation inside SST files, which speeds up per-item fetches (`q-conv-*`, `q-id-*`) at the cost of higher series cardinality. The same flag must be set at every subsequent step — schema, seed, and bench — because the line-protocol writer maps tags to PK columns, so seeding must agree with the DDL on which columns are tags.
+**Schema variant:** set `ITEM_PK=true` to append each table's per-item cluster column to its PRIMARY KEY (`trace_id` on `spans`, `conversation_id` on `conversation_items`). For Strategy B this produces `PRIMARY KEY (tenant_id, trace_id)` on `spans` and `PRIMARY KEY (tenant_id, conversation_id)` on `conversation_items`. The BLOOM skipping index is kept on the same high-cardinality id column in both modes. The same `ITEM_PK` value must be set at every subsequent step — schema, seed, and bench — because the line-protocol writer maps tags to PK columns, so seeding must agree with the DDL on which columns are tags.
 
 ### Step 3 — Seed data
 

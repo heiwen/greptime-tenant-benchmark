@@ -256,8 +256,8 @@ the large-row tiers more faithfully than row count alone.
 
 ## Read workloads
 
-All queries fetch at most 50 rows. Two query shapes cover all production access
-patterns:
+Most queries fetch at most 50 rows. The read workload set covers list views,
+pagination, and direct conversation lookup paths:
 
 ### Q-time — Recent window scan
 

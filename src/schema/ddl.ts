@@ -15,13 +15,10 @@ function primaryKey(withTenantId: boolean, clusterCol: string): string {
 }
 
 // Emit the column definition for a per-item cluster column (e.g. trace_id,
-// conversation_id). When itemPk is on, the column is in the PK and is TAG-indexed
-// automatically, so a SKIPPING BLOOM would be redundant. When off, we add the BLOOM
-// to accelerate equality lookups on the column.
+// conversation_id). Keep the BLOOM skipping index even when the column is also
+// in the primary key; the benchmark compares PK clustering while preserving
+// predictable equality pruning for high-cardinality ids.
 function clusterColumn(name: string, type: string): string {
-  if (config.itemPk) {
-    return `${name} ${type} NOT NULL`;
-  }
   return `${name} ${type} NOT NULL SKIPPING INDEX WITH(type='BLOOM', granularity=10240)`;
 }
 
