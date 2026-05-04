@@ -1,0 +1,261 @@
+[
+  {
+    "timestamp": 1777885534702,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076510390,
+      "greptime_mito_cache_hit_total": 1529368789
+    }
+  },
+  {
+    "timestamp": 1777885539708,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076511668,
+      "greptime_mito_cache_hit_total": 1529379050
+    }
+  },
+  {
+    "timestamp": 1777885544703,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076512476,
+      "greptime_mito_cache_hit_total": 1529387983
+    }
+  },
+  {
+    "timestamp": 1777885549712,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076513326,
+      "greptime_mito_cache_hit_total": 1529397344
+    }
+  },
+  {
+    "timestamp": 1777885554705,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076514174,
+      "greptime_mito_cache_hit_total": 1529406537
+    }
+  },
+  {
+    "timestamp": 1777885559704,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076515051,
+      "greptime_mito_cache_hit_total": 1529416273
+    }
+  },
+  {
+    "timestamp": 1777885564709,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076515892,
+      "greptime_mito_cache_hit_total": 1529425501
+    }
+  },
+  {
+    "timestamp": 1777885569704,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076516805,
+      "greptime_mito_cache_hit_total": 1529435229
+    }
+  },
+  {
+    "timestamp": 1777885574708,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076517653,
+      "greptime_mito_cache_hit_total": 1529444829
+    }
+  },
+  {
+    "timestamp": 1777885579724,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076518517,
+      "greptime_mito_cache_hit_total": 1529454346
+    }
+  },
+  {
+    "timestamp": 1777885584727,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076519397,
+      "greptime_mito_cache_hit_total": 1529463997
+    }
+  },
+  {
+    "timestamp": 1777885589710,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076520270,
+      "greptime_mito_cache_hit_total": 1529473539
+    }
+  },
+  {
+    "timestamp": 1777885594728,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076521074,
+      "greptime_mito_cache_hit_total": 1529482381
+    }
+  },
+  {
+    "timestamp": 1777885599718,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076521876,
+      "greptime_mito_cache_hit_total": 1529491424
+    }
+  },
+  {
+    "timestamp": 1777885604713,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076522668,
+      "greptime_mito_cache_hit_total": 1529500364
+    }
+  },
+  {
+    "timestamp": 1777885609714,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076523449,
+      "greptime_mito_cache_hit_total": 1529509250
+    }
+  },
+  {
+    "timestamp": 1777885614729,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076524341,
+      "greptime_mito_cache_hit_total": 1529519035
+    }
+  },
+  {
+    "timestamp": 1777885619719,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076525197,
+      "greptime_mito_cache_hit_total": 1529528561
+    }
+  },
+  {
+    "timestamp": 1777885624732,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076526077,
+      "greptime_mito_cache_hit_total": 1529538336
+    }
+  },
+  {
+    "timestamp": 1777885629718,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076527005,
+      "greptime_mito_cache_hit_total": 1529548377
+    }
+  },
+  {
+    "timestamp": 1777885634712,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076527927,
+      "greptime_mito_cache_hit_total": 1529558839
+    }
+  },
+  {
+    "timestamp": 1777885639720,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076528821,
+      "greptime_mito_cache_hit_total": 1529568727
+    }
+  },
+  {
+    "timestamp": 1777885644734,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076529681,
+      "greptime_mito_cache_hit_total": 1529578160
+    }
+  },
+  {
+    "timestamp": 1777885649737,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076530499,
+      "greptime_mito_cache_hit_total": 1529587268
+    }
+  },
+  {
+    "timestamp": 1777885654727,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076531328,
+      "greptime_mito_cache_hit_total": 1529596382
+    }
+  },
+  {
+    "timestamp": 1777885659722,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076532115,
+      "greptime_mito_cache_hit_total": 1529605467
+    }
+  },
+  {
+    "timestamp": 1777885664716,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076532961,
+      "greptime_mito_cache_hit_total": 1529614534
+    }
+  },
+  {
+    "timestamp": 1777885669728,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076533772,
+      "greptime_mito_cache_hit_total": 1529623592
+    }
+  },
+  {
+    "timestamp": 1777885674716,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076534630,
+      "greptime_mito_cache_hit_total": 1529633146
+    }
+  },
+  {
+    "timestamp": 1777885679715,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076535474,
+      "greptime_mito_cache_hit_total": 1529642659
+    }
+  },
+  {
+    "timestamp": 1777885684712,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076536321,
+      "greptime_mito_cache_hit_total": 1529652034
+    }
+  },
+  {
+    "timestamp": 1777885689715,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076537181,
+      "greptime_mito_cache_hit_total": 1529661669
+    }
+  },
+  {
+    "timestamp": 1777885694719,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076538091,
+      "greptime_mito_cache_hit_total": 1529671704
+    }
+  },
+  {
+    "timestamp": 1777885699730,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076538934,
+      "greptime_mito_cache_hit_total": 1529680974
+    }
+  },
+  {
+    "timestamp": 1777885704725,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076539751,
+      "greptime_mito_cache_hit_total": 1529690324
+    }
+  },
+  {
+    "timestamp": 1777885709727,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076540601,
+      "greptime_mito_cache_hit_total": 1529699704
+    }
+  },
+  {
+    "timestamp": 1777885714719,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3076541476,
+      "greptime_mito_cache_hit_total": 1529709688
+    }
+  }
+]
