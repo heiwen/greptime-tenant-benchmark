@@ -18,7 +18,7 @@ The BLOOM is now redundant with PK-tag indexing, but run6 showed that flat-SST e
 
 ## Summary
 
-**Retaining the BLOOM index recovers almost all of run6's regressions and — for the first time — delivers on the ITEM_PK hypothesis: Strategy A's Q-conv clustered query is now 2.7× faster than run5** (167 ms → 61 ms p50, 50 → 140 QPS). Q-conv scattered, Q-id, and most Q-time workloads are back within a few percent of run5 on A. Strategy B partially recovered from the run6 collapse — Q-id went 157 s → 48 s (vs run5's 38 s), Q-conv clustered went 42 s → 28 s (vs run5's 2.9 s) — but it is still meaningfully worse than run5 and remains production-broken. Writes took a consistent 10–35 % hit across both strategies due to maintaining the BLOOM index on a high-cardinality PK column. **Recommendation: `ITEM_PK=true` with BLOOM retained is now a credible option for A if Q-conv latency matters; Strategy B should stay on the run5 schema.**
+**Retaining the BLOOM index recovers almost all of run6's regressions and — for the first time — delivers on the ITEM_PK hypothesis: Strategy A's Q-conv clustered query is now 2.7× faster than run5** (167 ms → 61 ms p50, 50 → 140 QPS). Q-conv scattered, Q-id, and most Q-time workloads are back within a few percent of run5 on A. Strategy B partially recovered from the run6 collapse — Q-id went 157 s → 48 s (vs run5's 38 s), Q-conv clustered went 42 s → 28 s (vs run5's 2.9 s) — but it is still meaningfully worse than run5 and remains production-broken. Follow-up `EXPLAIN ANALYZE` shows B's Q-conv gap is dominated by shared-region SST fan-in: one sampled scattered lookup touched 40,273 B SST files versus 73 for A, even though both returned only a few rows. Writes took a consistent 10–35 % hit across both strategies due to maintaining the BLOOM index on a high-cardinality PK column. **Recommendation: `ITEM_PK=true` with BLOOM retained is now a credible option for A if Q-conv latency matters; Strategy B should stay on the run5 schema.**
 
 ---
 
@@ -101,7 +101,14 @@ A almost recovered: 126 → 55 ms p50, 60 → 156 QPS, now 16 % short of run5's 
 
 The mechanism confirms run6's hypothesis: the BLOOM skipping index at 10k-row granularity was the primary pruning mechanism for equality lookup on the cluster column in flat SSTs. With both the BLOOM *and* the PK extension present, the scanner now combines two pruning paths — PK-range pruning gives a coarse filter and the BLOOM eliminates SST blocks that don't contain the target conversation_id — and the clustered case beats run5's BLOOM-only result handily.
 
-Strategy B Q-conv recovered only partially: 42 s → 28 s clustered, 38 s → 23 s scattered. Still 8–14× worse than run5 because every query fans out to 16 partitions and the merge cost per-query has grown with series cardinality, regardless of per-partition pruning. **B should stay on the run5 schema; the BLOOM retention does not save it.**
+Strategy B Q-conv recovered only partially: 42 s → 28 s clustered, 38 s → 23 s scattered. Still 8–14× worse than run5. A follow-up `EXPLAIN ANALYZE` on a deterministic scattered conversation shows the dominant cost is not result size or row filtering — it is the number of SST files in B's shared `conversation_items` region:
+
+| Strategy | Rows | SST files | file_ranges | build_parts_cost | scan_cost | finish_time |
+|---|---:|---:|---:|---:|---:|---:|
+| A | 7 | 73 | 75 | 91 ms | 152 ms | 52 ms |
+| B | 16 | 40,273 | 40,439 | 65.0 s | 78.1 s | 21.1 s |
+
+B touches ~552× more SST files and spends ~714× longer just building scan parts. This revises the Q-conv hypothesis: B is not primarily losing here because the query fans out across all 16 partitions; the sampled plan used one peer/region, but that shared region had accumulated tens of thousands of SST files from many tenants and conversations. BLOOM and PK pruning reduce the final output to a tiny row count, but they happen after the engine has built scan parts across the region's huge file set. Strategy A avoids this fixed overhead because the per-tenant table has only dozens of SSTs. **B should stay on the run5 schema; the BLOOM retention does not save it.**
 
 ---
 
@@ -162,13 +169,14 @@ Run7 essentially trades ~10–25 % write throughput for large per-item read wins
 
 2. **Strategy A's run7 schema is now the recommended choice if Q-conv latency is a product requirement.** If it isn't, run5's schema is cheaper on writes (−20 % cost avoided) and close enough on reads. The decision is workload-driven: per-conversation lookup throughput vs ingest headroom.
 
-3. **Strategy B should remain on the run5 schema.** B's Q-time 7 d regressed further, Q-id is still 10× worse than run5 in absolute terms, and mixed workloads are still in the multi-minute tail. The 16-way partition fan-out problem is the dominant cost for B and no amount of per-partition index tuning can close it. If B is pursued further, partition strategy (fewer partitions, different partition key) is the lever, not index layout.
+3. **Strategy B should remain on the run5 schema.** B's Q-time 7 d regressed further, Q-id is still 10× worse than run5 in absolute terms, and mixed workloads are still in the multi-minute tail. B has two distinct read-path problems: S1 pagination still pays the 16-way partition fan-out tax, while S2 Q-conv now appears dominated by shared-region SST fan-in (40k+ files in the sampled B region versus 73 in A). More per-column index tuning is unlikely to close either gap. If B is pursued further, partition/region layout and compaction/file-count control are the levers, not adding more indexes.
 
 4. **Write cost is real but bounded.** Maintaining the BLOOM on a high-cardinality PK column costs ~20 % of write throughput at the 10-VU middle band and ~8–10 % at saturation. This should be factored into capacity sizing if the schema is adopted.
 
-5. **The A/B ratio widened again because A improved while B mostly didn't.** Q-conv clustered is now 467× in A's favour (run5: 17×, run6: 31×). The practical implication is unchanged: A is the only viable strategy at this tenant count.
+5. **The A/B ratio widened again because A improved while B mostly didn't.** Q-conv clustered is now 467× in A's favour (run5: 17×, run6: 31×). The follow-up Q-conv explain confirms that A's tenant-local table keeps the scan file set tiny, while B's shared region forces a huge fixed scan-planning cost before pruning to the target conversation. The practical implication is unchanged: A is the only viable strategy at this tenant count.
 
 6. **Remaining open questions**:
    - Is the ~20 % W2/W1 regression driven entirely by the BLOOM, by the PK widening, or both? A run with just BLOOM-but-no-PK-extension would isolate this (essentially run5 with BLOOM granularity tuned).
    - Does the Q-conv A win hold under higher conversation cardinality (e.g. 500k conv/tenant)? This run's 50k conversations leaves the per-tenant bloom filters comfortably small.
-   - Can Strategy B's partition count be reduced from 16 to 4 while keeping write parallelism acceptable? The fan-out cost has dominated every B result since run3.
+   - Can Strategy B reduce shared-region SST fan-in for S2 Q-conv through stronger compaction, smaller regions, tenant-aware partitioning, or a different region split policy?
+   - Can Strategy B's S1 partition count/key be changed while keeping write parallelism acceptable? Fan-out still dominates B's S1 pagination results.
