@@ -90,7 +90,7 @@ export function spansTableB(): string {
   span_links STRING,
   TIME INDEX ("timestamp")${primaryKey(true, 'trace_id')}
 )
-${PARTITION_CLAUSE_ON('trace_id')}
+${PARTITION_CLAUSE_ON('tenant_id')}
 WITH ('append_mode' = 'true')`;
 }
 
@@ -118,6 +118,6 @@ export function conversationItemsTableB(): string {
   "data" STRING,
   TIME INDEX ("created_at")${primaryKey(true, 'conversation_id')}
 )
-${PARTITION_CLAUSE_ON('conversation_id')}
+${PARTITION_CLAUSE_ON('tenant_id')}
 WITH ('append_mode' = 'true')`;
 }
