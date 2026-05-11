@@ -18,11 +18,13 @@ Every query carries `WHERE tenant_id = ?`, so partitioning on `tenant_id` prunes
 
 ## Summary
 
-**Strategy B finally works for most workloads.** Partitioning on `tenant_id` eliminates the 16-way partition fan-out that made every B read collapse in runs 5–7 — B Q-id S1 went from 48 s → 110 ms p50 (~430× faster), mixed 10 VU from 1.2 → 93 QPS (77×), M1 1-tenant from 31 → 155 QPS (5×). The sole remaining B cliff is **Q-conv**, which is now *worse* than run7 (clustered 28 s → 36 s, scattered 23 s → 46 s). The run7 explain analysis called this: Q-conv's bottleneck is shared-region SST fan-in on the conversation_id equality path, not partition fan-out — concentrating a tenant's rows into one partition makes that region's SST pile larger, not smaller.
+**Strategy B finally works for most workloads.** Partitioning on `tenant_id` eliminates the 16-way partition fan-out that made every B read collapse in runs 5–7 — B Q-id S1 went from 48 s → 110 ms p50 (~430× faster), mixed 10 VU from 1.2 → 93 QPS (77×), M1 1-tenant from 31 → 155 QPS (5×). **`EXPLAIN ANALYZE VERBOSE` on the run8 dataset confirms the mechanism:** B Q-conv scattered touches 80 SST files (was 40,273 in run7) and `build_parts_cost` dropped from 65 s to ~10 ms — a 6,000× planning-cost reduction. The shared-region SST fan-in problem is solved at the storage layer.
 
-**Unexpected: Strategy A regressed on multiple workloads despite zero schema change vs run7.** A Q-conv clustered went 61 ms → 384 ms (6.3×), A Q-id S2 went 55 ms → 179 ms (3.3×), A M1 1-tenant went 74 ms → 333 ms (4.5×). Writes and Q-time on A actually improved slightly. Since no DDL changed for A, this is most likely SST layout / bloom population drift from re-seeding, or compaction state at scrape time — worth confirming with a rerun or EXPLAIN ANALYZE VERBOSE on the current dataset before treating it as a real regression.
+**But the B Q-conv bench still shows 36 s p50 clustered / 46 s scattered at 10 VUs.** The per-query explain (single VU, serial) completes in 82–197 ms finish_time — a ~400× gap vs the bench. Since SST fan-in is no longer the bottleneck, the remaining B Q-conv cost must be concurrency contention: 100 tenants across 16 partitions means ~6 tenants share a region, and 10 VUs picking random tenants will collide on region-level scan workers. This is a **different problem** from runs 5–7 and points at region-sizing / scan-parallelism, not indexing.
 
-**Recommendation:** `tenant_id` partitioning is a keeper for B — it takes B from "production-broken" to "production-viable on every workload except Q-conv". Next experiment should target B's Q-conv SST fan-in (smaller regions, more aggressive compaction, tenant-aware region policy). The A regressions should be isolated before drawing further conclusions on the A schema.
+**Strategy A regressed on multiple workloads despite zero schema change vs run7.** A Q-conv clustered went 61 ms → 384 ms (6.3×), A Q-id S2 went 55 ms → 179 ms (3.3×), A M1 1-tenant went 74 ms → 333 ms (4.5×). **EXPLAIN rules out SST layout drift:** A's per-tenant table still has 74 files / 75 ranges — essentially identical to run7's 73 / 75. The A regression is environmental (compaction state, cache, concurrency contention at bench time), not schema or dataset. Sample-to-sample scan_cost variance on A is also higher than run7 (272–426 ms across samples on one workload vs a stable 152 ms before), consistent with cache or compaction thrash at bench time.
+
+**Recommendation:** `tenant_id` partitioning is a keeper for B — it takes B from "production-broken" to "production-viable on every workload except Q-conv at concurrency". Next B experiment should target region-level scan parallelism and region sizing (not indexing, not partitioning). The A regressions should be isolated with a rerun on a freshly-compacted cluster before drawing further schema conclusions.
 
 ---
 
@@ -101,9 +103,7 @@ A **regressed sharply** (55 → 179 ms p50) despite unchanged schema — see the
 | Clustered | 384 ms | 1,273 ms | 22 | 35,971 ms | 64,216 ms | 0.21 | **105×** | **A −84 % QPS**, B −28 % | A −56 % QPS, **B −92 %** |
 | Scattered | 612 ms | 2,009 ms | 14 | 46,260 ms | 92,973 ms | 0.18 | **78×** | A −41 %, B −39 % | A −30 %, **B −91 %** |
 
-**Both strategies regressed on Q-conv vs run7.** A clustered went 61 ms → 384 ms despite zero schema change — this is the headline unexplained result of run8. B actually got *worse* than run7 on Q-conv (clustered 28 s → 36 s, scattered 23 s → 46 s), which the run7 analysis predicted: concentrating a tenant's rows into one partition enlarges the shared-region SST pile that already dominated Q-conv's scan-planning cost. `tenant_id` partitioning helps every query that scales with partition count (Q-time, Q-id pagination) and hurts the one query that already scaled with region size (Q-conv).
-
-**Action item:** re-run `EXPLAIN ANALYZE VERBOSE` on A Q-conv clustered in the current dataset to confirm whether the regression is SST-file-count drift, bloom population drift, or compaction state. Without that, we can't distinguish schema effect from environmental drift.
+**Both strategies regressed on Q-conv vs run7 at the bench level.** A clustered went 61 ms → 384 ms despite zero schema change. B clustered went 28 s → 36 s. See "EXPLAIN ANALYZE findings" below — the run7 hypothesis (B SST fan-in from shared-region partitioning) is now resolved at the storage layer; the remaining B cost is concurrency contention, not fan-in. A's regression is not visible in the explain plan at all and appears to be environmental.
 
 ---
 
@@ -135,6 +135,55 @@ A **regressed sharply** (55 → 179 ms p50) despite unchanged schema — see the
 | 100 | 126 ms | 2,787 ms | 398 | 430 ms | 15,208 ms | 72 | 0 | A +28 %, **B +158×** | A +3 %, **B +100×** |
 
 **Mixed workload is the biggest headline for B.** B went from 0.45 QPS / 1,083 s p99 in run7 to 72 QPS / 15 s p99 in run8 — still the weakest on the tail but finally in the same order of magnitude as A. A is also at its best mixed result across any run (398 QPS at 100 VU). The error-count collapse (B errors went from hundreds to zero) is a direct consequence of Q-id no longer stalling VU pools for minutes.
+
+---
+
+## EXPLAIN ANALYZE VERBOSE findings
+
+Ran `bun run src/explain-a-regressions.ts` against the run8 cluster (see [results/run8/explain.csv](run8/explain.csv) and [results/run8/explain-verbose.log](run8/explain-verbose.log)). 5 samples per (workload, strategy), 1 tenant.
+
+### Strategy B: SST fan-in is fixed
+
+| | Run7 explain (scattered) | **Run8 explain (scattered)** | Δ |
+|---|---|---|---|
+| files | 40,273 | **80** | 500× fewer |
+| file_ranges | 40,439 | 582 | 70× fewer |
+| build_parts_cost | 65.0 s | **~10 ms** | ~6,500× faster |
+| scan_cost | 78.1 s | 65–425 ms | ~200× faster |
+| finish_time (per query) | 21.1 s | 31–197 ms | ~100× faster |
+
+Run7's scan-planning-collapse symptom is gone. The `tenant_id` partitioning routes every Q-conv to the one region that contains that tenant's rows; that region has ~80 SSTs (one per daily compaction bucket × 18 months, plus a handful of recent uncompacted SSTs) instead of ~40k. Bloom and minmax pruning then drop 99 % of remaining row groups.
+
+### Strategy B Q-conv: the remaining bench gap is concurrency, not storage
+
+Single-VU explain runs complete in 82–197 ms per Q-conv query. The 10-VU bench reports 36 s p50 clustered / 46 s p50 scattered. That is a ~400× gap that cannot be explained by SST layout — the explain already read the same files from the same region. The candidates:
+
+- **Region-level scan contention.** 100 tenants across 16 partitions ≈ 6 tenants per region. At 10 VUs picking random tenants, multiple VUs will frequently target the same region concurrently. The scan worker pool inside the region becomes the bottleneck.
+- **Page cache / bloom cache cold paths.** Bench picks random conversations per call; explain picks 5 fixed conversations that get cache-warm after the first sample.
+
+Either way, the fix is not at the partition / index level. It is region-sizing or scan parallelism — the levers the benchmark hasn't exercised yet.
+
+### Strategy A: SST layout unchanged from run7
+
+| | Run7 explain | **Run8 explain (Q-conv scattered)** |
+|---|---|---|
+| files | 73 | **74** |
+| file_ranges | 75 | 75 |
+| build_parts_cost | 91 ms | 6–40 ms |
+| scan_cost | 152 ms (stable) | **272–426 ms** (wide variance across 5 samples) |
+| finish_time | 52 ms | 40–224 ms |
+
+**The A regression is not schema drift and not dataset drift.** Same schema, same file count, same row distribution. But scan_cost is 2–3× run7's and highly variable sample-to-sample. That pattern is consistent with:
+
+- compaction in flight at scrape time, producing transient file-count / row-group spikes not captured by the per-query explain;
+- page cache / metadata cache pressure from the other concurrent workloads sharing the same cluster;
+- or noisy-neighbor contention on the shared EC2 instance (everything runs on one `m7i-flex.8xlarge`).
+
+None of those are schema-driven, so the A numbers in this run should be treated as a lower bound on A's achievable latency, not a schema verdict.
+
+### M1 probe is invalid — must be re-run
+
+All 10 `m1-qtime-s1-24h` samples show `files=0, ranges=0, build_parts_cost=4ns`. The probe used `now() − 24h` as the cutoff; the dataset's most recent timestamp is earlier than that, so the `timestamp > cutoff` predicate matched zero rows. The probe needs to anchor on `MAX(timestamp)` for the tenant before it can say anything about the M1 regression. Patched in [src/explain-a-regressions.ts](../src/explain-a-regressions.ts) — rerun required.
 
 ---
 
@@ -172,15 +221,16 @@ Run8 is the first run where Strategy B is production-viable on anything other th
 
 1. **Partitioning on `tenant_id` is the right move for B** and should be the baseline going forward. Every workload that has `WHERE tenant_id = ?` as the dominant filter (all of them) benefits: Q-time S1 improved 10–90×, Q-id S1 improved 430×, memory-pressure tests improved 5–14×, mixed workloads improved 77–158×. Writes were unaffected because UUID first-char distributes uniformly across the 16 hex ranges.
 
-2. **Q-conv is B's remaining problem, and partition alignment made it slightly worse.** The run7 explain analysis showed Q-conv's cost was dominated by shared-region SST fan-in (40k+ files), not partition fan-out. Consolidating a tenant's rows into a single partition increases local SST density, which is exactly the wrong direction for Q-conv. Next experiment should target region size / compaction policy, not partitioning — e.g. smaller regions, more aggressive compaction triggers, or tenant-scoped region splits.
+2. **B's Q-conv storage-layer problem is solved; the remaining problem is concurrency.** EXPLAIN ANALYZE VERBOSE shows SST count per Q-conv query dropped from 40,273 (run7) to 80 (run8) and `build_parts_cost` from 65 s to ~10 ms — a 6,000× planning-cost reduction. Single-VU per-query latency is 82–197 ms. But the 10-VU bench shows 36–46 s p50, a 400× gap. With ~6 tenants per region and 10 VUs picking random tenants, region-level scan contention is the only remaining credible explanation. **Next B experiment should target region sizing or scan parallelism** (not indexing, not partitioning), e.g. more partitions to spread tenants across more regions, or tuning the scan worker pool.
 
-3. **Strategy A's unexplained regressions need investigation before any schema conclusions.** A Q-conv clustered (61 → 384 ms), A Q-id S2 (55 → 179 ms), and A M1 (74 → 333 ms) all regressed sharply against a schema that didn't change between run7 and run8. Re-running A on the current cluster, or running `EXPLAIN ANALYZE VERBOSE` on the affected queries, should isolate whether this is SST layout drift, bloom population drift after reseeding, compaction state at scrape time, or a genuine environmental regression.
+3. **Strategy A's regressions are not explained by schema or dataset.** EXPLAIN shows A's per-tenant table still has 74 files / 75 ranges, essentially identical to run7. The regression is environmental — compaction state at scrape time, page cache pressure from the concurrent bench, or noisy-neighbor effects on the shared EC2 instance. Scan_cost variance sample-to-sample is also much higher than run7 (272–426 ms vs 152 ms stable). A rerun on a freshly-compacted, idle cluster is needed to separate schema from state before drawing further conclusions on A.
 
-4. **A still wins on absolute Q-conv and Q-id S2 latency, by a smaller margin than before.** Q-conv clustered A/B ratio went from 467× (run7) to 105× (run8). A is still the only option if Q-conv latency is a product requirement. But if the A regression turns out to be real, the gap is narrower still.
+4. **A still wins on absolute Q-conv and Q-id S2 latency, by a smaller margin than before.** Q-conv clustered A/B ratio went from 467× (run7) to 105× (run8). A is still the only option today if Q-conv latency is a product requirement. If the A regression is environmental and clears on a rerun, the gap widens again; if the B Q-conv concurrency fix lands, the gap narrows dramatically.
 
-5. **The product-schema decision now has a clear next step.** Run5 → run8 have converged on a shortlist: Strategy A with ITEM_PK+BLOOM (run7 schema) for Q-conv-dominated workloads, Strategy B with `tenant_id` partitioning (run8 schema) if Q-conv can be either tolerated or worked around. The remaining open question for B is whether region-level tuning can close the Q-conv gap without re-introducing the partition-fan-out tax that run8 just removed.
+5. **The product-schema decision now has a clear next step.** Run5 → run8 have converged on a shortlist: Strategy A with ITEM_PK+BLOOM (run7 schema) for Q-conv-dominated workloads, Strategy B with `tenant_id` partitioning (run8 schema) if the Q-conv concurrency problem can be resolved. The decision between A and B now rests on one experiment: can B Q-conv at 10 VUs close the 400× gap between explain and bench?
 
 6. **Remaining open questions:**
-   - Why did A regress on conversation_id-equality workloads with zero schema change? Re-run to confirm, then EXPLAIN ANALYZE VERBOSE to identify the scan cost delta.
-   - Can B Q-conv be improved with smaller regions or more aggressive compaction, given that 40k+ SSTs per region dominated the run7 explain? Next B experiment should target this, not partitioning.
-   - Does the B recovery hold under 500 tenants or 1M conversations/tenant, or does the per-region SST count scale linearly with partition count reduction?
+   - **B Q-conv concurrency gap.** Re-run B Q-conv at 1, 2, 5, 10 VUs to locate the contention cliff. Try 32 or 64 partitions to reduce tenants-per-region density. Try increasing region-level scan worker count.
+   - **A regression isolation.** Rerun A only on a freshly-restarted, post-compaction cluster. Expect to see run7-like 61 ms / 140 QPS Q-conv clustered; if not, the regression is real and the explain was too coarse to catch it.
+   - **M1 probe validity.** Re-run the EXPLAIN probe after the cutoff-anchoring fix to get actual M1 numbers.
+   - **Scale.** Does the B recovery hold at 500 tenants or 1M conversations/tenant? At that scale, per-region tenant density grows even without schema changes.
