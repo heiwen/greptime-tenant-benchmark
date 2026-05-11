@@ -26,7 +26,7 @@ Every scenario below maps to a real product screen or subsystem:
 Both storage strategies are run against every scenario:
 
 - **Strategy A — Per-tenant tables** (`spans_<uuid>`, `conversation_items_<uuid>`). No `tenant_id` column, no partition clause. Natural data isolation.
-- **Strategy B — Shared tables**, 16 range partitions keyed on the per-item cluster column (`trace_id` for spans, `conversation_id` for conversation items). Every query carries `WHERE tenant_id = ?`.
+- **Strategy B — Shared tables**, 16 range partitions. The current B2 experiment partitions both shared tables on `tenant_id` to test tenant-local routing while keeping a single shared table per dataset. Every query carries `WHERE tenant_id = ?`.
 
 At 100 tenants Strategy A ends up with 200 table objects; Strategy B has 2. That ratio is the fundamental trade-off we're trying to measure.
 
@@ -150,8 +150,8 @@ WITH ('append_mode' = 'true');
 ### Strategy B
 
 ```sql
--- Shared tables, 16 partitions on the per-item cluster column
--- (trace_id for spans, conversation_id for conversation_items).
+-- Shared tables, 16 partitions.
+-- Current B2 experiment: both shared tables partition on tenant_id.
 -- Partition ranges: hex-digit first character, uniform over UUIDv4.
 
 CREATE TABLE IF NOT EXISTS spans (
@@ -189,11 +189,11 @@ CREATE TABLE IF NOT EXISTS spans (
   -- ITEM_PK=true:   PRIMARY KEY (tenant_id, trace_id)
   PRIMARY KEY (<see note>)
 )
-PARTITION ON COLUMNS (trace_id) (
-    trace_id < '1',
-    trace_id >= '1' AND trace_id < '2',
+PARTITION ON COLUMNS (tenant_id) (
+    tenant_id < '1',
+    tenant_id >= '1' AND tenant_id < '2',
     ...  -- 16 hex ranges total: '0'..'1', '1'..'2', ..., 'e'..'f', >= 'f'
-    trace_id >= 'f'
+    tenant_id >= 'f'
 )
 WITH ('append_mode' = 'true');
 
@@ -209,10 +209,10 @@ CREATE TABLE IF NOT EXISTS conversation_items (
   -- ITEM_PK=true:   PRIMARY KEY (tenant_id, conversation_id)
   PRIMARY KEY (<see note>)
 )
-PARTITION ON COLUMNS (conversation_id) (
-    conversation_id < '1',
+PARTITION ON COLUMNS (tenant_id) (
+    tenant_id < '1',
     ...  -- 16 hex ranges as above
-    conversation_id >= 'f'
+    tenant_id >= 'f'
 )
 WITH ('append_mode' = 'true');
 ```
