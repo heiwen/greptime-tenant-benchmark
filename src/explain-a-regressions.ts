@@ -192,9 +192,19 @@ async function main(): Promise<void> {
   // (matches the run7 explain methodology).
   await runConvWorkload('q-id-s2', 'scattered', qIdS2Query);
 
-  // M1: single tenant, S1 Q-time 24h. No per-sample key — just repeat to capture
-  // cache/compaction variance.
-  const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  // M1: single tenant, S1 Q-time 24h. Anchor the cutoff to MAX(timestamp) for
+  // this tenant so the probe hits real data even if the dataset was seeded long
+  // before the explain run. Using wall-clock - 24h would silently match zero
+  // rows on a stale seed.
+  const maxRow = await sql.unsafe(`
+    SELECT MAX("timestamp") AS max_ts
+    FROM ${tenantTable('spans', tenantId)}
+  `);
+  const maxTs = (maxRow[0] as { max_ts: string | Date | null }).max_ts;
+  if (maxTs === null) throw new Error(`tenant ${tenantId} has no spans`);
+  const maxDate = maxTs instanceof Date ? maxTs : new Date(maxTs);
+  const cutoff = new Date(maxDate.getTime() - 24 * 3600 * 1000).toISOString();
+  console.error(`m1 cutoff=${cutoff} (max_ts=${maxDate.toISOString()})`);
   for (let i = 0; i < samples; i++) {
     for (const strategy of ['a', 'b'] as const) {
       const label = `m1-qtime-s1-24h strategy=${strategy} sample=${i}`;
