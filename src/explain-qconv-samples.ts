@@ -72,19 +72,22 @@ async function explainQConv(strategy: Strategy, tenantId: string, conversationId
   }
 
   const query = strategy === 'b'
-    ? `EXPLAIN ANALYZE
+    ? `EXPLAIN ANALYZE VERBOSE
        SELECT "id", conversation_id, created_at, "type", "data"
        FROM conversation_items
        WHERE tenant_id = '${tenantId}'
          AND conversation_id = '${conversationId}'
        ORDER BY created_at ASC`
-    : `EXPLAIN ANALYZE
+    : `EXPLAIN ANALYZE VERBOSE
        SELECT "id", conversation_id, created_at, "type", "data"
        FROM ${tenantTable('conversation_items', tenantId)}
        WHERE conversation_id = '${conversationId}'
        ORDER BY created_at ASC`;
 
-  return parseStats(extractExplainText(await sql.unsafe(query)));
+  const text = extractExplainText(await sql.unsafe(query));
+  console.error(`\n=== verbose plan: strategy=${strategy} conversation_id=${conversationId} ===`);
+  console.error(text);
+  return parseStats(text);
 }
 
 function printRow(values: (string | number | null)[]): void {
