@@ -2,8 +2,10 @@ import { sql, tenantTable } from '../db.js';
 import { config } from '../config.js';
 import { tenantConversationId, pickConversationIndex } from './helpers.js';
 import type { WorkloadFn, CursorState } from './types.js';
+import { quoteSql, runExplainInBench, shouldExplain } from './explain.js';
 
 const spansCursors = new Map<string, CursorState>();
+let qIdCounter = 0;
 
 // One active conversation per tenant. Pages through it until exhausted, then picks a new one.
 // Bounded to tenantCount entries (vs. one entry per conversation in the old approach).
@@ -20,16 +22,60 @@ function getOrInitS2State(tenantId: string): S2State {
   return state;
 }
 
+function qIdS1Sql(strategy: 'a' | 'b', tenantId: string, cursor: CursorState | undefined, now: string): string {
+  const table = strategy === 'b' ? 'spans' : tenantTable('spans', tenantId);
+  const tenantFilter = strategy === 'b' ? `tenant_id = ${quoteSql(tenantId)} AND ` : '';
+  const cursorFilter = cursor
+    ? `("timestamp" < ${quoteSql(String(cursor.lastTs))} OR ("timestamp" = ${quoteSql(String(cursor.lastTs))} AND span_id < ${quoteSql(cursor.lastId)}))`
+    : `"timestamp" <= ${quoteSql(now)}`;
+
+  return `SELECT trace_id, span_id, "timestamp", duration_nano,
+                 gen_ai_system, gen_ai_request_model,
+                 gen_ai_input_tokens, gen_ai_output_tokens
+          FROM ${table}
+          WHERE ${tenantFilter}${cursorFilter}
+          ORDER BY "timestamp" DESC, span_id DESC
+          LIMIT 50`;
+}
+
+function qIdS2Sql(strategy: 'a' | 'b', tenantId: string, conversationId: string, cursor: CursorState | null): string {
+  const table = strategy === 'b' ? 'conversation_items' : tenantTable('conversation_items', tenantId);
+  const tenantFilter = strategy === 'b' ? `tenant_id = ${quoteSql(tenantId)} AND ` : '';
+  const cursorFilter = cursor
+    ? `AND (created_at < ${quoteSql(String(cursor.lastTs))} OR (created_at = ${quoteSql(String(cursor.lastTs))} AND "id" < ${quoteSql(cursor.lastId)}))`
+    : '';
+
+  return `SELECT "id", conversation_id, created_at, "type"
+          FROM ${table}
+          WHERE ${tenantFilter}conversation_id = ${quoteSql(conversationId)}
+            ${cursorFilter}
+          ORDER BY created_at DESC, "id" DESC
+          LIMIT 50`;
+}
+
 export function qIdS1(_page: number): WorkloadFn {
   return async ({ tenantId, strategy }) => {
     const cursor = spansCursors.get(tenantId);
+    const seq = ++qIdCounter;
+    const now = new Date().toISOString();
+
+    if (shouldExplain(seq)) {
+      await runExplainInBench({
+        seq,
+        workload: 'q-id-s1',
+        strategy,
+        tenantId,
+        key: cursor ? `${cursor.lastTs}:${cursor.lastId}` : now,
+        query: qIdS1Sql(strategy, tenantId, cursor, now),
+      });
+      return {};
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let rows: any[];
 
     if (!cursor) {
       // First call: no cursor, get latest page
-      const now = new Date().toISOString();
       if (strategy === 'b') {
         rows = await sql`
           SELECT trace_id, span_id, "timestamp", duration_nano,
@@ -100,6 +146,19 @@ export function qIdS2(_page: number): WorkloadFn {
   return async ({ tenantId, strategy }) => {
     const state = getOrInitS2State(tenantId);
     const { conversationId, cursor } = state;
+    const seq = ++qIdCounter;
+
+    if (shouldExplain(seq)) {
+      await runExplainInBench({
+        seq,
+        workload: 'q-id-s2',
+        strategy,
+        tenantId,
+        key: conversationId,
+        query: qIdS2Sql(strategy, tenantId, conversationId, cursor),
+      });
+      return {};
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let rows: any[];

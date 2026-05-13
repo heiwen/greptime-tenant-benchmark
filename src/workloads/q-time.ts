@@ -2,10 +2,66 @@ import { sql, tenantTable } from '../db.js';
 import { config } from '../config.js';
 import type { WorkloadFn } from './types.js';
 import { tenantConversationId } from './helpers.js';
+import { quoteSql, runExplainInBench, shouldExplain } from './explain.js';
+
+let qTimeCounter = 0;
+
+function qTimeS1Sql(strategy: 'a' | 'b', tenantId: string, cutoff: string): string {
+  if (strategy === 'b') {
+    return `SELECT trace_id, span_id, "timestamp", duration_nano,
+               gen_ai_system, gen_ai_request_model,
+               gen_ai_input_tokens, gen_ai_output_tokens
+        FROM spans
+        WHERE tenant_id = ${quoteSql(tenantId)}
+          AND "timestamp" > ${quoteSql(cutoff)}
+        ORDER BY "timestamp" DESC
+        LIMIT 50`;
+  }
+
+  return `SELECT trace_id, span_id, "timestamp", duration_nano,
+               gen_ai_system, gen_ai_request_model,
+               gen_ai_input_tokens, gen_ai_output_tokens
+        FROM ${tenantTable('spans', tenantId)}
+        WHERE "timestamp" > ${quoteSql(cutoff)}
+        ORDER BY "timestamp" DESC
+        LIMIT 50`;
+}
+
+function qTimeS2Sql(strategy: 'a' | 'b', tenantId: string, conversationId: string, cutoff: string): string {
+  if (strategy === 'b') {
+    return `SELECT "id", conversation_id, created_at, "type"
+        FROM conversation_items
+        WHERE tenant_id = ${quoteSql(tenantId)}
+          AND conversation_id = ${quoteSql(conversationId)}
+          AND created_at > ${quoteSql(cutoff)}
+        ORDER BY created_at DESC
+        LIMIT 50`;
+  }
+
+  return `SELECT "id", conversation_id, created_at, "type"
+        FROM ${tenantTable('conversation_items', tenantId)}
+        WHERE conversation_id = ${quoteSql(conversationId)}
+          AND created_at > ${quoteSql(cutoff)}
+        ORDER BY created_at DESC
+        LIMIT 50`;
+}
 
 export function qTimeS1(windowHours: number): WorkloadFn {
   return async ({ tenantId, strategy }) => {
     const cutoff = new Date(Date.now() - windowHours * 3600 * 1000).toISOString();
+    const seq = ++qTimeCounter;
+
+    if (shouldExplain(seq)) {
+      await runExplainInBench({
+        seq,
+        workload: `q-time-s1-${windowHours}h`,
+        strategy,
+        tenantId,
+        key: cutoff,
+        query: qTimeS1Sql(strategy, tenantId, cutoff),
+      });
+      return {};
+    }
 
     if (strategy === 'b') {
       await sql`
@@ -40,6 +96,19 @@ export function qTimeS2(windowHours: number): WorkloadFn {
     const cutoff = new Date(Date.now() - windowHours * 3600 * 1000).toISOString();
     const convIndex = Math.floor(Math.random() * config.conversationsPerTenant);
     const conversationId = tenantConversationId(tenantId, convIndex);
+    const seq = ++qTimeCounter;
+
+    if (shouldExplain(seq)) {
+      await runExplainInBench({
+        seq,
+        workload: `q-time-s2-${windowHours}h`,
+        strategy,
+        tenantId,
+        key: `${conversationId}:${cutoff}`,
+        query: qTimeS2Sql(strategy, tenantId, conversationId, cutoff),
+      });
+      return {};
+    }
 
     if (strategy === 'b') {
       await sql`
