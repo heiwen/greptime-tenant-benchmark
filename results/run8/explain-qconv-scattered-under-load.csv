@@ -1,0 +1,6 @@
+workload,sample,strategy,concurrency,tenant_id,conversation_id,latency_ms,output_rows,files,file_ranges,build_parts_cost,scan_cost,elapsed_await,finish_time
+q-conv-scattered,0,b,10,ab7c56b6-9c1e-4dc5-8f25-0eb5644ae210,60ea292f-7608-4b53-8c1c-72f76cf65bd8,173,21,82,585,13ms,430ms,396ms,168ms
+q-conv-scattered,1,b,10,c44dc1fc-8f74-43dd-9566-d8b2be710def,0e7aaffb-f75e-49c6-af34-d3d1214e7c2a,440,21,80,583,18ms,1.43s,1.28s,436ms
+q-conv-scattered,2,b,10,34d23bae-68b6-4c1a-b15c-043c8f1c52b9,3212a621-c7c0-4725-a9f4-f8401be65e61,383,26,82,584,11ms,722ms,677ms,378ms
+q-conv-scattered,3,b,10,11eaa9c3-4b8f-45e3-b426-78c6d8e7e252,75a8b664-09d3-482e-9e2b-feaaab8348ce,907,25,80,583,12ms,1.92s,1.76s,903ms
+q-conv-scattered,4,b,10,34d23bae-68b6-4c1a-b15c-043c8f1c52b9,1431dd6c-f1a7-4c7d-be3e-cacf2a0f17a3,680,32,82,584,12ms,1.35s,1.30s,673ms
