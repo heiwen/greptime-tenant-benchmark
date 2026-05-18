@@ -1,0 +1,1353 @@
+[
+  {
+    "timestamp": 1778839800995,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2689659,
+      "greptime_mito_cache_hit_total": 112011399
+    }
+  },
+  {
+    "timestamp": 1778839806026,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2703743,
+      "greptime_mito_cache_hit_total": 112189077
+    }
+  },
+  {
+    "timestamp": 1778839811012,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2712650,
+      "greptime_mito_cache_hit_total": 112369953
+    }
+  },
+  {
+    "timestamp": 1778839816007,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2717138,
+      "greptime_mito_cache_hit_total": 112512675
+    }
+  },
+  {
+    "timestamp": 1778839821089,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2724329,
+      "greptime_mito_cache_hit_total": 112652183
+    }
+  },
+  {
+    "timestamp": 1778839826034,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2732102,
+      "greptime_mito_cache_hit_total": 112800198
+    }
+  },
+  {
+    "timestamp": 1778839831002,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2742264,
+      "greptime_mito_cache_hit_total": 112937473
+    }
+  },
+  {
+    "timestamp": 1778839836154,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2750411,
+      "greptime_mito_cache_hit_total": 113075521
+    }
+  },
+  {
+    "timestamp": 1778839841026,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2759182,
+      "greptime_mito_cache_hit_total": 113226734
+    }
+  },
+  {
+    "timestamp": 1778839846020,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2767105,
+      "greptime_mito_cache_hit_total": 113428148
+    }
+  },
+  {
+    "timestamp": 1778839851014,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2776605,
+      "greptime_mito_cache_hit_total": 113584448
+    }
+  },
+  {
+    "timestamp": 1778839856034,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2782325,
+      "greptime_mito_cache_hit_total": 113743777
+    }
+  },
+  {
+    "timestamp": 1778839861017,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2792071,
+      "greptime_mito_cache_hit_total": 113916749
+    }
+  },
+  {
+    "timestamp": 1778839866055,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2798552,
+      "greptime_mito_cache_hit_total": 114049906
+    }
+  },
+  {
+    "timestamp": 1778839871005,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2807252,
+      "greptime_mito_cache_hit_total": 114196586
+    }
+  },
+  {
+    "timestamp": 1778839876131,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2815114,
+      "greptime_mito_cache_hit_total": 114345527
+    }
+  },
+  {
+    "timestamp": 1778839881139,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2820012,
+      "greptime_mito_cache_hit_total": 114464434
+    }
+  },
+  {
+    "timestamp": 1778839886078,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2829297,
+      "greptime_mito_cache_hit_total": 114634004
+    }
+  },
+  {
+    "timestamp": 1778839891009,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2835385,
+      "greptime_mito_cache_hit_total": 114762132
+    }
+  },
+  {
+    "timestamp": 1778839896021,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2841580,
+      "greptime_mito_cache_hit_total": 114928068
+    }
+  },
+  {
+    "timestamp": 1778839901037,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2845167,
+      "greptime_mito_cache_hit_total": 115119721
+    }
+  },
+  {
+    "timestamp": 1778839906007,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2852845,
+      "greptime_mito_cache_hit_total": 115272187
+    }
+  },
+  {
+    "timestamp": 1778839911021,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2858651,
+      "greptime_mito_cache_hit_total": 115431580
+    }
+  },
+  {
+    "timestamp": 1778839916108,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2862944,
+      "greptime_mito_cache_hit_total": 115580353
+    }
+  },
+  {
+    "timestamp": 1778839921039,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2873015,
+      "greptime_mito_cache_hit_total": 115733563
+    }
+  },
+  {
+    "timestamp": 1778839926018,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2881669,
+      "greptime_mito_cache_hit_total": 115854118
+    }
+  },
+  {
+    "timestamp": 1778839931035,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2887955,
+      "greptime_mito_cache_hit_total": 115998565
+    }
+  },
+  {
+    "timestamp": 1778839936018,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2895767,
+      "greptime_mito_cache_hit_total": 116145439
+    }
+  },
+  {
+    "timestamp": 1778839941014,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2903527,
+      "greptime_mito_cache_hit_total": 116294356
+    }
+  },
+  {
+    "timestamp": 1778839946108,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2910170,
+      "greptime_mito_cache_hit_total": 116416995
+    }
+  },
+  {
+    "timestamp": 1778839951014,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2918667,
+      "greptime_mito_cache_hit_total": 116548860
+    }
+  },
+  {
+    "timestamp": 1778839956052,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2923540,
+      "greptime_mito_cache_hit_total": 116680619
+    }
+  },
+  {
+    "timestamp": 1778839961027,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2929224,
+      "greptime_mito_cache_hit_total": 116808933
+    }
+  },
+  {
+    "timestamp": 1778839966082,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2934525,
+      "greptime_mito_cache_hit_total": 116936969
+    }
+  },
+  {
+    "timestamp": 1778839971028,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2942459,
+      "greptime_mito_cache_hit_total": 117073939
+    }
+  },
+  {
+    "timestamp": 1778839976045,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2947170,
+      "greptime_mito_cache_hit_total": 117207026
+    }
+  },
+  {
+    "timestamp": 1778839981232,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2951877,
+      "greptime_mito_cache_hit_total": 117338582
+    }
+  },
+  {
+    "timestamp": 1778839986122,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2959540,
+      "greptime_mito_cache_hit_total": 117480407
+    }
+  },
+  {
+    "timestamp": 1778839991041,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2966664,
+      "greptime_mito_cache_hit_total": 117592119
+    }
+  },
+  {
+    "timestamp": 1778839996018,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2975837,
+      "greptime_mito_cache_hit_total": 117711833
+    }
+  },
+  {
+    "timestamp": 1778840001278,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2982430,
+      "greptime_mito_cache_hit_total": 117851177
+    }
+  },
+  {
+    "timestamp": 1778840006074,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2990463,
+      "greptime_mito_cache_hit_total": 117982522
+    }
+  },
+  {
+    "timestamp": 1778840011063,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 2997777,
+      "greptime_mito_cache_hit_total": 118152169
+    }
+  },
+  {
+    "timestamp": 1778840016034,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3006772,
+      "greptime_mito_cache_hit_total": 118303189
+    }
+  },
+  {
+    "timestamp": 1778840021032,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3017833,
+      "greptime_mito_cache_hit_total": 118467891
+    }
+  },
+  {
+    "timestamp": 1778840026035,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3023192,
+      "greptime_mito_cache_hit_total": 118600090
+    }
+  },
+  {
+    "timestamp": 1778840031052,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3028975,
+      "greptime_mito_cache_hit_total": 118758567
+    }
+  },
+  {
+    "timestamp": 1778840036079,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3038463,
+      "greptime_mito_cache_hit_total": 118912443
+    }
+  },
+  {
+    "timestamp": 1778840041037,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3046646,
+      "greptime_mito_cache_hit_total": 119153810
+    }
+  },
+  {
+    "timestamp": 1778840046185,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3058745,
+      "greptime_mito_cache_hit_total": 119356079
+    }
+  },
+  {
+    "timestamp": 1778840051248,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3069822,
+      "greptime_mito_cache_hit_total": 119523341
+    }
+  },
+  {
+    "timestamp": 1778840056033,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3079692,
+      "greptime_mito_cache_hit_total": 119698719
+    }
+  },
+  {
+    "timestamp": 1778840061035,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3088443,
+      "greptime_mito_cache_hit_total": 119882594
+    }
+  },
+  {
+    "timestamp": 1778840066057,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3097456,
+      "greptime_mito_cache_hit_total": 120073764
+    }
+  },
+  {
+    "timestamp": 1778840071098,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3107937,
+      "greptime_mito_cache_hit_total": 120288588
+    }
+  },
+  {
+    "timestamp": 1778840076032,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3117612,
+      "greptime_mito_cache_hit_total": 120459764
+    }
+  },
+  {
+    "timestamp": 1778840081054,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3128455,
+      "greptime_mito_cache_hit_total": 120631772
+    }
+  },
+  {
+    "timestamp": 1778840086040,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3135331,
+      "greptime_mito_cache_hit_total": 120798768
+    }
+  },
+  {
+    "timestamp": 1778840091146,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3140870,
+      "greptime_mito_cache_hit_total": 120951797
+    }
+  },
+  {
+    "timestamp": 1778840096102,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3146325,
+      "greptime_mito_cache_hit_total": 121115536
+    }
+  },
+  {
+    "timestamp": 1778840101227,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3154029,
+      "greptime_mito_cache_hit_total": 121293956
+    }
+  },
+  {
+    "timestamp": 1778840106060,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3160799,
+      "greptime_mito_cache_hit_total": 121486477
+    }
+  },
+  {
+    "timestamp": 1778840111086,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3166758,
+      "greptime_mito_cache_hit_total": 121652115
+    }
+  },
+  {
+    "timestamp": 1778840116149,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3173366,
+      "greptime_mito_cache_hit_total": 121826699
+    }
+  },
+  {
+    "timestamp": 1778840121069,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3179350,
+      "greptime_mito_cache_hit_total": 122004944
+    }
+  },
+  {
+    "timestamp": 1778840126051,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3184221,
+      "greptime_mito_cache_hit_total": 122167403
+    }
+  },
+  {
+    "timestamp": 1778840131088,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3190377,
+      "greptime_mito_cache_hit_total": 122346690
+    }
+  },
+  {
+    "timestamp": 1778840136184,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3197731,
+      "greptime_mito_cache_hit_total": 122493575
+    }
+  },
+  {
+    "timestamp": 1778840141053,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3201146,
+      "greptime_mito_cache_hit_total": 122651819
+    }
+  },
+  {
+    "timestamp": 1778840146059,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3206677,
+      "greptime_mito_cache_hit_total": 122829182
+    }
+  },
+  {
+    "timestamp": 1778840151048,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3212980,
+      "greptime_mito_cache_hit_total": 123005691
+    }
+  },
+  {
+    "timestamp": 1778840156051,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3218532,
+      "greptime_mito_cache_hit_total": 123158275
+    }
+  },
+  {
+    "timestamp": 1778840161115,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3228699,
+      "greptime_mito_cache_hit_total": 123298102
+    }
+  },
+  {
+    "timestamp": 1778840166050,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3234489,
+      "greptime_mito_cache_hit_total": 123477662
+    }
+  },
+  {
+    "timestamp": 1778840171051,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3237521,
+      "greptime_mito_cache_hit_total": 123679109
+    }
+  },
+  {
+    "timestamp": 1778840176173,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3246393,
+      "greptime_mito_cache_hit_total": 123861224
+    }
+  },
+  {
+    "timestamp": 1778840181260,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3251796,
+      "greptime_mito_cache_hit_total": 124056144
+    }
+  },
+  {
+    "timestamp": 1778840186062,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3258543,
+      "greptime_mito_cache_hit_total": 124211438
+    }
+  },
+  {
+    "timestamp": 1778840191056,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3263166,
+      "greptime_mito_cache_hit_total": 124389088
+    }
+  },
+  {
+    "timestamp": 1778840196087,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3271649,
+      "greptime_mito_cache_hit_total": 124558769
+    }
+  },
+  {
+    "timestamp": 1778840201139,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3279170,
+      "greptime_mito_cache_hit_total": 124733464
+    }
+  },
+  {
+    "timestamp": 1778840206075,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3280838,
+      "greptime_mito_cache_hit_total": 124882901
+    }
+  },
+  {
+    "timestamp": 1778840211051,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3285404,
+      "greptime_mito_cache_hit_total": 125013267
+    }
+  },
+  {
+    "timestamp": 1778840216054,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3295303,
+      "greptime_mito_cache_hit_total": 125194616
+    }
+  },
+  {
+    "timestamp": 1778840221070,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3306593,
+      "greptime_mito_cache_hit_total": 125402325
+    }
+  },
+  {
+    "timestamp": 1778840226050,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3313595,
+      "greptime_mito_cache_hit_total": 125560703
+    }
+  },
+  {
+    "timestamp": 1778840231046,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3322367,
+      "greptime_mito_cache_hit_total": 125728867
+    }
+  },
+  {
+    "timestamp": 1778840236082,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3328774,
+      "greptime_mito_cache_hit_total": 125859045
+    }
+  },
+  {
+    "timestamp": 1778840241058,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3332264,
+      "greptime_mito_cache_hit_total": 126017697
+    }
+  },
+  {
+    "timestamp": 1778840246254,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3338635,
+      "greptime_mito_cache_hit_total": 126159300
+    }
+  },
+  {
+    "timestamp": 1778840251132,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3345513,
+      "greptime_mito_cache_hit_total": 126298259
+    }
+  },
+  {
+    "timestamp": 1778840256094,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3352114,
+      "greptime_mito_cache_hit_total": 126412077
+    }
+  },
+  {
+    "timestamp": 1778840261068,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3359760,
+      "greptime_mito_cache_hit_total": 126553137
+    }
+  },
+  {
+    "timestamp": 1778840266054,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3369757,
+      "greptime_mito_cache_hit_total": 126718562
+    }
+  },
+  {
+    "timestamp": 1778840271077,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3377358,
+      "greptime_mito_cache_hit_total": 126882339
+    }
+  },
+  {
+    "timestamp": 1778840276063,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3385740,
+      "greptime_mito_cache_hit_total": 127027536
+    }
+  },
+  {
+    "timestamp": 1778840281063,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3392756,
+      "greptime_mito_cache_hit_total": 127199779
+    }
+  },
+  {
+    "timestamp": 1778840286120,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3400432,
+      "greptime_mito_cache_hit_total": 127377882
+    }
+  },
+  {
+    "timestamp": 1778840291060,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3404091,
+      "greptime_mito_cache_hit_total": 127519049
+    }
+  },
+  {
+    "timestamp": 1778840296116,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3411676,
+      "greptime_mito_cache_hit_total": 127679577
+    }
+  },
+  {
+    "timestamp": 1778840301174,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3418299,
+      "greptime_mito_cache_hit_total": 127826880
+    }
+  },
+  {
+    "timestamp": 1778840306060,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3425050,
+      "greptime_mito_cache_hit_total": 128002236
+    }
+  },
+  {
+    "timestamp": 1778840311065,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3434177,
+      "greptime_mito_cache_hit_total": 128144900
+    }
+  },
+  {
+    "timestamp": 1778840316157,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3443388,
+      "greptime_mito_cache_hit_total": 128305896
+    }
+  },
+  {
+    "timestamp": 1778840321100,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3449257,
+      "greptime_mito_cache_hit_total": 128422988
+    }
+  },
+  {
+    "timestamp": 1778840326134,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3456829,
+      "greptime_mito_cache_hit_total": 128555908
+    }
+  },
+  {
+    "timestamp": 1778840331257,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3460559,
+      "greptime_mito_cache_hit_total": 128690472
+    }
+  },
+  {
+    "timestamp": 1778840336061,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3462069,
+      "greptime_mito_cache_hit_total": 128859734
+    }
+  },
+  {
+    "timestamp": 1778840341065,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3468383,
+      "greptime_mito_cache_hit_total": 129008455
+    }
+  },
+  {
+    "timestamp": 1778840346072,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3477083,
+      "greptime_mito_cache_hit_total": 129159385
+    }
+  },
+  {
+    "timestamp": 1778840351128,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3483304,
+      "greptime_mito_cache_hit_total": 129302325
+    }
+  },
+  {
+    "timestamp": 1778840356108,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3489762,
+      "greptime_mito_cache_hit_total": 129447707
+    }
+  },
+  {
+    "timestamp": 1778840361083,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3496042,
+      "greptime_mito_cache_hit_total": 129581650
+    }
+  },
+  {
+    "timestamp": 1778840366087,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3501526,
+      "greptime_mito_cache_hit_total": 129724471
+    }
+  },
+  {
+    "timestamp": 1778840371064,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3510133,
+      "greptime_mito_cache_hit_total": 129849487
+    }
+  },
+  {
+    "timestamp": 1778840376139,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3516690,
+      "greptime_mito_cache_hit_total": 129983743
+    }
+  },
+  {
+    "timestamp": 1778840381192,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3521755,
+      "greptime_mito_cache_hit_total": 130124505
+    }
+  },
+  {
+    "timestamp": 1778840386128,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3526752,
+      "greptime_mito_cache_hit_total": 130264136
+    }
+  },
+  {
+    "timestamp": 1778840391079,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3534166,
+      "greptime_mito_cache_hit_total": 130383853
+    }
+  },
+  {
+    "timestamp": 1778840396082,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3539532,
+      "greptime_mito_cache_hit_total": 130533580
+    }
+  },
+  {
+    "timestamp": 1778840401075,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3541348,
+      "greptime_mito_cache_hit_total": 130679536
+    }
+  },
+  {
+    "timestamp": 1778840406077,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3547787,
+      "greptime_mito_cache_hit_total": 130795972
+    }
+  },
+  {
+    "timestamp": 1778840411083,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3551789,
+      "greptime_mito_cache_hit_total": 130940287
+    }
+  },
+  {
+    "timestamp": 1778840416144,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3555489,
+      "greptime_mito_cache_hit_total": 131051797
+    }
+  },
+  {
+    "timestamp": 1778840421098,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3559959,
+      "greptime_mito_cache_hit_total": 131196526
+    }
+  },
+  {
+    "timestamp": 1778840426078,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3564660,
+      "greptime_mito_cache_hit_total": 131294087
+    }
+  },
+  {
+    "timestamp": 1778840431070,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3571520,
+      "greptime_mito_cache_hit_total": 131419434
+    }
+  },
+  {
+    "timestamp": 1778840436082,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3575738,
+      "greptime_mito_cache_hit_total": 131546876
+    }
+  },
+  {
+    "timestamp": 1778840441255,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3581778,
+      "greptime_mito_cache_hit_total": 131686372
+    }
+  },
+  {
+    "timestamp": 1778840446112,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3587378,
+      "greptime_mito_cache_hit_total": 131825754
+    }
+  },
+  {
+    "timestamp": 1778840451101,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3594392,
+      "greptime_mito_cache_hit_total": 131983371
+    }
+  },
+  {
+    "timestamp": 1778840456115,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3600101,
+      "greptime_mito_cache_hit_total": 132117719
+    }
+  },
+  {
+    "timestamp": 1778840461072,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3604017,
+      "greptime_mito_cache_hit_total": 132240787
+    }
+  },
+  {
+    "timestamp": 1778840466081,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3606539,
+      "greptime_mito_cache_hit_total": 132393089
+    }
+  },
+  {
+    "timestamp": 1778840471079,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3615124,
+      "greptime_mito_cache_hit_total": 132540949
+    }
+  },
+  {
+    "timestamp": 1778840476085,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3620304,
+      "greptime_mito_cache_hit_total": 132678071
+    }
+  },
+  {
+    "timestamp": 1778840481164,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3626345,
+      "greptime_mito_cache_hit_total": 132811888
+    }
+  },
+  {
+    "timestamp": 1778840486120,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3632356,
+      "greptime_mito_cache_hit_total": 132958089
+    }
+  },
+  {
+    "timestamp": 1778840491089,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3637226,
+      "greptime_mito_cache_hit_total": 133101836
+    }
+  },
+  {
+    "timestamp": 1778840496108,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3640791,
+      "greptime_mito_cache_hit_total": 133247115
+    }
+  },
+  {
+    "timestamp": 1778840501075,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3648731,
+      "greptime_mito_cache_hit_total": 133368295
+    }
+  },
+  {
+    "timestamp": 1778840506163,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3654763,
+      "greptime_mito_cache_hit_total": 133513451
+    }
+  },
+  {
+    "timestamp": 1778840511102,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3660486,
+      "greptime_mito_cache_hit_total": 133641032
+    }
+  },
+  {
+    "timestamp": 1778840516075,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3667045,
+      "greptime_mito_cache_hit_total": 133769530
+    }
+  },
+  {
+    "timestamp": 1778840521107,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3669346,
+      "greptime_mito_cache_hit_total": 133891628
+    }
+  },
+  {
+    "timestamp": 1778840526147,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3676019,
+      "greptime_mito_cache_hit_total": 134006259
+    }
+  },
+  {
+    "timestamp": 1778840531088,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3679925,
+      "greptime_mito_cache_hit_total": 134134699
+    }
+  },
+  {
+    "timestamp": 1778840536092,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3684522,
+      "greptime_mito_cache_hit_total": 134265595
+    }
+  },
+  {
+    "timestamp": 1778840541224,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3692007,
+      "greptime_mito_cache_hit_total": 134430136
+    }
+  },
+  {
+    "timestamp": 1778840546169,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3700349,
+      "greptime_mito_cache_hit_total": 134556241
+    }
+  },
+  {
+    "timestamp": 1778840551108,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3709478,
+      "greptime_mito_cache_hit_total": 134728685
+    }
+  },
+  {
+    "timestamp": 1778840556109,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3717070,
+      "greptime_mito_cache_hit_total": 134920929
+    }
+  },
+  {
+    "timestamp": 1778840561086,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3729175,
+      "greptime_mito_cache_hit_total": 135111482
+    }
+  },
+  {
+    "timestamp": 1778840566082,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3733344,
+      "greptime_mito_cache_hit_total": 135294673
+    }
+  },
+  {
+    "timestamp": 1778840571095,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3741257,
+      "greptime_mito_cache_hit_total": 135485895
+    }
+  },
+  {
+    "timestamp": 1778840576110,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3749425,
+      "greptime_mito_cache_hit_total": 135647582
+    }
+  },
+  {
+    "timestamp": 1778840581115,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3758158,
+      "greptime_mito_cache_hit_total": 135821059
+    }
+  },
+  {
+    "timestamp": 1778840586112,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3765794,
+      "greptime_mito_cache_hit_total": 135981269
+    }
+  },
+  {
+    "timestamp": 1778840591097,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3774168,
+      "greptime_mito_cache_hit_total": 136134110
+    }
+  },
+  {
+    "timestamp": 1778840596088,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3780583,
+      "greptime_mito_cache_hit_total": 136315358
+    }
+  },
+  {
+    "timestamp": 1778840601085,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3788076,
+      "greptime_mito_cache_hit_total": 136461940
+    }
+  },
+  {
+    "timestamp": 1778840606090,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3794965,
+      "greptime_mito_cache_hit_total": 136632777
+    }
+  },
+  {
+    "timestamp": 1778840611091,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3802404,
+      "greptime_mito_cache_hit_total": 136800564
+    }
+  },
+  {
+    "timestamp": 1778840616116,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3812111,
+      "greptime_mito_cache_hit_total": 136941081
+    }
+  },
+  {
+    "timestamp": 1778840621226,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3821750,
+      "greptime_mito_cache_hit_total": 137109152
+    }
+  },
+  {
+    "timestamp": 1778840626091,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3829975,
+      "greptime_mito_cache_hit_total": 137253914
+    }
+  },
+  {
+    "timestamp": 1778840631103,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3838616,
+      "greptime_mito_cache_hit_total": 137440603
+    }
+  },
+  {
+    "timestamp": 1778840636324,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3848438,
+      "greptime_mito_cache_hit_total": 137598813
+    }
+  },
+  {
+    "timestamp": 1778840641110,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3856455,
+      "greptime_mito_cache_hit_total": 137758064
+    }
+  },
+  {
+    "timestamp": 1778840646091,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3866027,
+      "greptime_mito_cache_hit_total": 137921609
+    }
+  },
+  {
+    "timestamp": 1778840651147,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3872775,
+      "greptime_mito_cache_hit_total": 138077214
+    }
+  },
+  {
+    "timestamp": 1778840656092,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3881848,
+      "greptime_mito_cache_hit_total": 138222046
+    }
+  },
+  {
+    "timestamp": 1778840661095,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3888204,
+      "greptime_mito_cache_hit_total": 138392997
+    }
+  },
+  {
+    "timestamp": 1778840666086,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3898572,
+      "greptime_mito_cache_hit_total": 138536164
+    }
+  },
+  {
+    "timestamp": 1778840671143,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3906806,
+      "greptime_mito_cache_hit_total": 138698797
+    }
+  },
+  {
+    "timestamp": 1778840676114,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3914821,
+      "greptime_mito_cache_hit_total": 138881693
+    }
+  },
+  {
+    "timestamp": 1778840681090,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3922710,
+      "greptime_mito_cache_hit_total": 139014809
+    }
+  },
+  {
+    "timestamp": 1778840686105,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3928911,
+      "greptime_mito_cache_hit_total": 139200016
+    }
+  },
+  {
+    "timestamp": 1778840691290,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3939039,
+      "greptime_mito_cache_hit_total": 139335062
+    }
+  },
+  {
+    "timestamp": 1778840696258,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3948073,
+      "greptime_mito_cache_hit_total": 139495100
+    }
+  },
+  {
+    "timestamp": 1778840701135,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3953362,
+      "greptime_mito_cache_hit_total": 139655031
+    }
+  },
+  {
+    "timestamp": 1778840706257,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3960219,
+      "greptime_mito_cache_hit_total": 139826304
+    }
+  },
+  {
+    "timestamp": 1778840711127,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3967902,
+      "greptime_mito_cache_hit_total": 139970586
+    }
+  },
+  {
+    "timestamp": 1778840716179,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3976168,
+      "greptime_mito_cache_hit_total": 140142777
+    }
+  },
+  {
+    "timestamp": 1778840721334,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3983551,
+      "greptime_mito_cache_hit_total": 140299851
+    }
+  },
+  {
+    "timestamp": 1778840726107,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 3992727,
+      "greptime_mito_cache_hit_total": 140455804
+    }
+  },
+  {
+    "timestamp": 1778840731102,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 4003855,
+      "greptime_mito_cache_hit_total": 140649585
+    }
+  },
+  {
+    "timestamp": 1778840736141,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 4012869,
+      "greptime_mito_cache_hit_total": 140834630
+    }
+  },
+  {
+    "timestamp": 1778840741093,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 4020094,
+      "greptime_mito_cache_hit_total": 141026476
+    }
+  },
+  {
+    "timestamp": 1778840746119,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 4032499,
+      "greptime_mito_cache_hit_total": 141231699
+    }
+  },
+  {
+    "timestamp": 1778840751155,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 4043679,
+      "greptime_mito_cache_hit_total": 141435362
+    }
+  },
+  {
+    "timestamp": 1778840756093,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 4048715,
+      "greptime_mito_cache_hit_total": 141628781
+    }
+  },
+  {
+    "timestamp": 1778840761120,
+    "metrics": {
+      "greptime_mito_cache_miss_total": 4061269,
+      "greptime_mito_cache_hit_total": 141831256
+    }
+  }
+]
