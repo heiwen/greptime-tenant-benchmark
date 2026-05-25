@@ -53,6 +53,33 @@ function hasAnyLabelValue(labels: Record<string, string>, expected: string[]): b
   return expected.some((value) => hasLabelValue(labels, value));
 }
 
+const CACHE_TYPE_LABEL_KEYS = ['type', 'kind', 'cache_type', 'name'];
+const CACHE_TYPE_NAME_TOKENS = [
+  'index',
+  'data',
+  'page',
+  'vector',
+  'sst',
+  'meta',
+  'selector',
+  'result',
+  'bloom',
+  'fulltext',
+  'inverted',
+  'puffin',
+];
+
+function extractCacheType(name: string, labels: Record<string, string>): string | null {
+  for (const key of CACHE_TYPE_LABEL_KEYS) {
+    const value = labels[key];
+    if (value) return value.toLowerCase();
+  }
+  const tokens = tokenizeMetricName(name);
+  const matched = CACHE_TYPE_NAME_TOKENS.filter((t) => tokens.has(t));
+  if (matched.length === 0) return null;
+  return matched.join('_');
+}
+
 export function parsePrometheusText(text: string): Record<string, number> {
   const result: Record<string, number> = {};
 
@@ -84,11 +111,9 @@ export function parsePrometheusText(text: string): Record<string, number> {
       isLegacyMetric('greptime_mito_cache_bytes') ||
       (tokens.has('cache') && tokens.has('bytes'));
 
-    if (isCacheBytesMetric && (hasLabelValue(sample.labels, 'index') || tokens.has('index'))) {
-      add('greptime_mito_cache_bytes{type="index"}');
-    }
-    if (isCacheBytesMetric && (hasLabelValue(sample.labels, 'data') || tokens.has('data'))) {
-      add('greptime_mito_cache_bytes{type="data"}');
+    if (isCacheBytesMetric) {
+      const cacheType = extractCacheType(lowerName, sample.labels) ?? 'unknown';
+      add(`greptime_mito_cache_bytes{type="${cacheType}"}`);
     }
 
     const isCacheHitMetric =
@@ -98,6 +123,8 @@ export function parsePrometheusText(text: string): Record<string, number> {
 
     if (isCacheHitMetric) {
       add('greptime_mito_cache_hit_total');
+      const cacheType = extractCacheType(lowerName, sample.labels);
+      if (cacheType) add(`greptime_mito_cache_hit_total{type="${cacheType}"}`);
     }
 
     const isCacheMissMetric =
@@ -107,6 +134,8 @@ export function parsePrometheusText(text: string): Record<string, number> {
 
     if (isCacheMissMetric) {
       add('greptime_mito_cache_miss_total');
+      const cacheType = extractCacheType(lowerName, sample.labels);
+      if (cacheType) add(`greptime_mito_cache_miss_total{type="${cacheType}"}`);
     }
   }
 

@@ -24,7 +24,9 @@ greptime_mito_open_files_total 55
       'greptime_mito_cache_bytes{type="index"}': 11,
       'greptime_mito_cache_bytes{type="data"}': 22,
       'greptime_mito_cache_hit_total': 33,
+      'greptime_mito_cache_hit_total{type="index"}': 33,
       'greptime_mito_cache_miss_total': 44,
+      'greptime_mito_cache_miss_total{type="index"}': 44,
       'greptime_mito_open_files_total': 55,
     });
   });
@@ -61,6 +63,24 @@ greptime_storage_open_file_count 56
       'greptime_mito_cache_bytes{type="index"}': 12,
       'greptime_mito_cache_bytes{type="data"}': 34,
       'greptime_mito_open_files_total': 56,
+    });
+  });
+
+  test('preserves non-index/data cache type labels (sst_meta, page, vector, …)', () => {
+    const metrics = parsePrometheusText(`
+greptime_mito_cache_bytes{type="sst_meta"} 100
+greptime_mito_cache_bytes{type="page"} 200
+greptime_mito_cache_bytes{type="vector"} 300
+greptime_mito_cache_bytes{type="selector_result"} 400
+greptime_storage_cache_bytes{kind="bloom_filter_index"} 500
+`);
+
+    expect(metrics).toEqual({
+      'greptime_mito_cache_bytes{type="sst_meta"}': 100,
+      'greptime_mito_cache_bytes{type="page"}': 200,
+      'greptime_mito_cache_bytes{type="vector"}': 300,
+      'greptime_mito_cache_bytes{type="selector_result"}': 400,
+      'greptime_mito_cache_bytes{type="bloom_filter_index"}': 500,
     });
   });
 });
