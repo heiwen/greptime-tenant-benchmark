@@ -6,8 +6,8 @@
 
 global_write_buffer_size = "1GB"        # min(16GB/8, 1GB)
 global_write_buffer_reject_size = "2GB" # 2× write buffer
-page_cache_size = "4GB"                 # raised from 2GB — B Q-conv page-cache hit rate was 14-26% (vs A's 92-98%) at 2GB; B's shared-region working set per query spans ~6 tenants and overran 2GB
+page_cache_size = "2GB"                 # raised from 2GB — B Q-conv page-cache hit rate was 14-26% (vs A's 92-98%) at 2GB; B's shared-region working set per query spans ~6 tenants and overran 2GB
 vector_cache_size = "512MB"             # min(16GB/16, 512MB) — capped at 512MB
 sst_meta_cache_size = "512MB"             # raised from 128MB default — run8 cache-thrash repro showed 15% hit rate on B Q-conv at default; 1GB gives ~8× headroom for the SST metadata working set at 100 tenants × shared-region partitioning
-selector_result_cache_size = "1GB"      # raised from 512MB — B Q-conv index_result hit rate was 33% (vs A's 0-4% — A barely uses it); index fragments evicting between queries on B's larger working set
+selector_result_cache_size = "512MV"      # raised from 512MB — B Q-conv index_result hit rate was 33% (vs A's 0-4% — A barely uses it); index fragments evicting between queries on B's larger working set
 scan_memory_limit = "8GB"               # 50% × 16GB
