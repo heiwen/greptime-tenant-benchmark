@@ -4,9 +4,10 @@ import { sql } from '../db.js';
 import { runWorkload } from './concurrency.js';
 import { writeCsv } from './metrics.js';
 import { startScraping, writeScrapeResults, checkScrapeUrls } from './scrape.js';
-import { SCENARIOS } from './scenarios.js';
+import { SCENARIOS, type ScenarioRun } from './scenarios.js';
 import type { RunResult, Strategy } from '../types.js';
 import { existsSync } from 'fs';
+import { writeFile } from 'fs/promises';
 import { join } from 'path';
 
 function pad(s: string | number, n: number): string {
@@ -54,6 +55,32 @@ function printSummaryTable(results: RunResult[]): void {
   }
 
   console.log('═'.repeat(130));
+}
+
+async function runPostBenchProbe(
+  scenario: ScenarioRun,
+  strategy: Strategy,
+  tenants: string[],
+  outputDir: string,
+  timestamp: string,
+): Promise<void> {
+  const probe = scenario.postBenchProbe;
+  const tenantId = tenants[Math.floor(Math.random() * tenants.length)];
+  const { query, key } = probe.build(strategy, tenantId);
+
+  const started = Date.now();
+  const rows = await sql.unsafe(`EXPLAIN ANALYZE VERBOSE\n${query}`);
+  const latencyMs = Date.now() - started;
+  const text = rows
+    .map((row: Record<string, unknown>) => Object.values(row).map(String).join('\n'))
+    .join('\n');
+
+  const file = join(outputDir, `postbench-${strategy}-${scenario.name}-${timestamp}.log`);
+  await writeFile(
+    file,
+    `probe=${probe.label} strategy=${strategy} scenario=${scenario.name} tenant_id=${tenantId} key=${key} latency_ms=${latencyMs}\n\n${text}\n`,
+  );
+  console.log(`  Post-bench probe: ${latencyMs}ms → ${file}`);
 }
 
 async function main() {
@@ -171,6 +198,13 @@ async function main() {
         const scrapeFile = join(outputDir, `scrape-${strategy}-${scenario.name}-${timestamp}.json`);
         await writeScrapeResults(snapshots, scrapeFile);
         console.log(`  Prometheus snapshots: ${snapshots.length} → ${scrapeFile}`);
+      }
+
+      // Post-bench EXPLAIN ANALYZE VERBOSE probe — captures plan state under just-completed load.
+      try {
+        await runPostBenchProbe(scenario, strategy, tenantSubset, outputDir, timestamp);
+      } catch (err) {
+        console.error(`  Post-bench probe failed: ${err instanceof Error ? err.message : err}`);
       }
 
       const result = metrics.summary(

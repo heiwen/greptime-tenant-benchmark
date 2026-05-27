@@ -1,5 +1,5 @@
 x-greptimedb: &greptimedb
-  image: greptime/greptimedb:v1.0.2
+  image: greptime/greptimedb:v1.1.0-nightly-20260525
 
 x-node-limits: &node-limits
   mem_limit: 16g
@@ -27,8 +27,8 @@ services:
     command:
       - metasrv
       - start
-      - --rpc-bind-addr=0.0.0.0:3002
-      - --rpc-server-addr=metasrv:3002
+      - --grpc-bind-addr=0.0.0.0:3002
+      - --grpc-server-addr=metasrv:3002
       - --http-addr=0.0.0.0:3000
       - --backend=postgres-store
       - "--store-addrs=host=postgres port=5432 user=greptime password=greptime dbname=metasrv"
@@ -44,8 +44,8 @@ services:
       - start
       - --node-id=0
       - --data-home=/greptimedb_data
-      - --rpc-bind-addr=0.0.0.0:3001
-      - --rpc-server-addr=datanode0:3001
+      - --grpc-bind-addr=0.0.0.0:3001
+      - --grpc-server-addr=datanode0:3001
       - --metasrv-addrs=metasrv:3002
       - --http-addr=0.0.0.0:5000
       - --config-file=/config/datanode.toml
@@ -66,8 +66,8 @@ services:
       - start
       - --node-id=1
       - --data-home=/greptimedb_data
-      - --rpc-bind-addr=0.0.0.0:3001
-      - --rpc-server-addr=datanode1:3001
+      - --grpc-bind-addr=0.0.0.0:3001
+      - --grpc-server-addr=datanode1:3001
       - --metasrv-addrs=metasrv:3002
       - --http-addr=0.0.0.0:5000
       - --config-file=/config/datanode.toml
@@ -88,8 +88,8 @@ services:
       - start
       - --node-id=2
       - --data-home=/greptimedb_data
-      - --rpc-bind-addr=0.0.0.0:3001
-      - --rpc-server-addr=datanode2:3001
+      - --grpc-bind-addr=0.0.0.0:3001
+      - --grpc-server-addr=datanode2:3001
       - --metasrv-addrs=metasrv:3002
       - --http-addr=0.0.0.0:5000
       - --config-file=/config/datanode.toml
@@ -110,7 +110,7 @@ services:
       - start
       - --metasrv-addrs=metasrv:3002
       - --http-addr=0.0.0.0:4000
-      - --rpc-bind-addr=0.0.0.0:4001
+      - --grpc-bind-addr=0.0.0.0:4001
       - --mysql-addr=0.0.0.0:4002
       - --postgres-addr=0.0.0.0:4003
       - --config-file=/config/frontend.toml
@@ -130,7 +130,7 @@ services:
       - start
       - --metasrv-addrs=metasrv:3002
       - --http-addr=0.0.0.0:4000
-      - --rpc-bind-addr=0.0.0.0:4001
+      - --grpc-bind-addr=0.0.0.0:4001
       - --mysql-addr=0.0.0.0:4002
       - --postgres-addr=0.0.0.0:4003
       - --config-file=/config/frontend.toml

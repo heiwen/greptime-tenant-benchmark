@@ -1,10 +1,16 @@
-import type { WorkloadFn, Scenario } from '../types.js';
-import { qTimeS1, qTimeS2 } from '../workloads/q-time.js';
-import { qIdS1, qIdS2 } from '../workloads/q-id.js';
-import { qConvS2 } from '../workloads/q-conv.js';
+import type { WorkloadFn, Scenario, Strategy } from '../types.js';
+import { qTimeS1, qTimeS2, qTimeS1Sql, qTimeS2Sql } from '../workloads/q-time.js';
+import { qIdS1, qIdS2, qIdS1Sql, qIdS2Sql } from '../workloads/q-id.js';
+import { qConvS2, qConvSql } from '../workloads/q-conv.js';
 import { w1 } from '../workloads/w1.js';
 import { w2 } from '../workloads/w2.js';
+import { tenantConversationId, pickConversationIndex } from '../workloads/helpers.js';
 import { config } from '../config.js';
+
+export interface PostBenchProbe {
+  label: string;
+  build: (strategy: Strategy, tenantId: string) => { query: string; key: string };
+}
 
 export interface ScenarioRun {
   name: string;
@@ -14,7 +20,75 @@ export interface ScenarioRun {
   durationSecs: number;
   tenantDiversity: number;
   description: string;
+  postBenchProbe: PostBenchProbe;
 }
+
+function qConvProbe(pool: 'clustered' | 'scattered'): PostBenchProbe {
+  return {
+    label: `q-conv-${pool}`,
+    build: (strategy, tenantId) => {
+      const conversationId = tenantConversationId(
+        tenantId,
+        pickConversationIndex(pool, config.conversationsPerTenant),
+      );
+      return { query: qConvSql(strategy, tenantId, conversationId), key: conversationId };
+    },
+  };
+}
+
+function qTimeS1Probe(windowHours: number): PostBenchProbe {
+  return {
+    label: `q-time-s1-${windowHours}h`,
+    build: (strategy, tenantId) => {
+      const cutoff = new Date(Date.now() - windowHours * 3600 * 1000).toISOString();
+      return { query: qTimeS1Sql(strategy, tenantId, cutoff), key: cutoff };
+    },
+  };
+}
+
+function qTimeS2Probe(windowHours: number): PostBenchProbe {
+  return {
+    label: `q-time-s2-${windowHours}h`,
+    build: (strategy, tenantId) => {
+      const cutoff = new Date(Date.now() - windowHours * 3600 * 1000).toISOString();
+      const conversationId = tenantConversationId(
+        tenantId,
+        pickConversationIndex('clustered', config.conversationsPerTenant),
+      );
+      return {
+        query: qTimeS2Sql(strategy, tenantId, conversationId, cutoff),
+        key: `${conversationId}:${cutoff}`,
+      };
+    },
+  };
+}
+
+const qIdS1Probe: PostBenchProbe = {
+  label: 'q-id-s1',
+  build: (strategy, tenantId) => {
+    const now = new Date().toISOString();
+    return { query: qIdS1Sql(strategy, tenantId, undefined, now), key: now };
+  },
+};
+
+const qIdS2Probe: PostBenchProbe = {
+  label: 'q-id-s2',
+  build: (strategy, tenantId) => {
+    const conversationId = tenantConversationId(
+      tenantId,
+      pickConversationIndex('scattered', config.conversationsPerTenant),
+    );
+    return { query: qIdS2Sql(strategy, tenantId, conversationId, null), key: conversationId };
+  },
+};
+
+// Write workloads have no SELECT path of their own. Probe with a 1h time-range read against
+// the table they just wrote into — exercises the just-flushed memtable / fresh SST state.
+const w1Probe: PostBenchProbe = { ...qTimeS2Probe(1), label: 'w1-postwrite-q-time-1h' };
+const w2Probe: PostBenchProbe = { ...qTimeS1Probe(1), label: 'w2-postwrite-q-time-1h' };
+
+// Mixed workload is dominated by qTimeS1 1h (70% weight); probe with that.
+const mixedProbe: PostBenchProbe = { ...qTimeS1Probe(1), label: 'mixed-q-time-1h' };
 
 // Mixed workload: 70% qTimeS1(1), 15% qIdS1(1), 10% W2, 5% W1
 function makeMixedWorkloadFn(): WorkloadFn {
@@ -48,6 +122,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 1,
     description: 'Single-tenant span write, 1 VU',
+    postBenchProbe: w2Probe,
   },
   {
     name: 'w2-10vu',
@@ -57,6 +132,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Multi-tenant span write, 10 VUs',
+    postBenchProbe: w2Probe,
   },
   {
     name: 'w2-50vu',
@@ -66,6 +142,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 50,
     description: 'Multi-tenant span write, 50 VUs',
+    postBenchProbe: w2Probe,
   },
   {
     name: 'q-time-1h-10vu',
@@ -75,6 +152,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Span time-range query (1h window), 10 VUs',
+    postBenchProbe: qTimeS1Probe(1),
   },
   {
     name: 'q-time-24h-10vu',
@@ -84,6 +162,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Span time-range query (24h window), 10 VUs',
+    postBenchProbe: qTimeS1Probe(24),
   },
   {
     name: 'q-time-7d-10vu',
@@ -93,6 +172,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Span time-range query (7d window), 10 VUs',
+    postBenchProbe: qTimeS1Probe(168),
   },
   {
     name: 'q-id-10vu',
@@ -102,6 +182,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Span cursor-pagination query, 10 VUs',
+    postBenchProbe: qIdS1Probe,
   },
   {
     name: 'q-conv-clustered-10vu',
@@ -111,6 +192,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Fetch full conversation history — clustered timestamps (single-session), 10 VUs',
+    postBenchProbe: qConvProbe('clustered'),
   },
   {
     name: 'q-conv-scattered-10vu',
@@ -120,6 +202,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Fetch full conversation history — scattered timestamps (multi-session), 10 VUs',
+    postBenchProbe: qConvProbe('scattered'),
   },
 
   // ── S2 workload scenarios (conversation items) ────────────────────────────
@@ -131,6 +214,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 1,
     description: 'Single-tenant conversation item write, 1 VU',
+    postBenchProbe: w1Probe,
   },
   {
     name: 'w1-10vu',
@@ -140,6 +224,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Multi-tenant conversation item write, 10 VUs',
+    postBenchProbe: w1Probe,
   },
   {
     name: 'w1-50vu',
@@ -149,6 +234,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 50,
     description: 'Multi-tenant conversation item write, 50 VUs',
+    postBenchProbe: w1Probe,
   },
   {
     name: 'q-time-1h-10vu-s2',
@@ -158,6 +244,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Conversation item time-range query (1h window), 10 VUs',
+    postBenchProbe: qTimeS2Probe(1),
   },
   {
     name: 'q-time-24h-10vu-s2',
@@ -167,6 +254,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Conversation item time-range query (24h window), 10 VUs',
+    postBenchProbe: qTimeS2Probe(24),
   },
   {
     name: 'q-time-7d-10vu-s2',
@@ -176,6 +264,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Conversation item time-range query (7d window), 10 VUs',
+    postBenchProbe: qTimeS2Probe(168),
   },
   {
     name: 'q-id-10vu-s2',
@@ -185,6 +274,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 120,
     tenantDiversity: 10,
     description: 'Conversation item cursor-pagination query, 10 VUs',
+    postBenchProbe: qIdS2Probe,
   },
 
   // ── Memory pressure scenarios ─────────────────────────────────────────────
@@ -207,6 +297,7 @@ export const SCENARIOS: ScenarioRun[] = [
         durationSecs: 300,
         tenantDiversity: 1,
         description: 'Memory pressure: 50 VUs hammering 1 tenant, 5min',
+        postBenchProbe: qTimeS1Probe(24),
       },
       {
         name: 'm2-5pct',
@@ -216,6 +307,7 @@ export const SCENARIOS: ScenarioRun[] = [
         durationSecs: 300,
         tenantDiversity: m2diversity,
         description: `Memory pressure: 50 VUs across ${m2diversity} tenants (5%), 5min`,
+        postBenchProbe: qTimeS1Probe(24),
       },
       {
         name: 'm3-50pct',
@@ -225,6 +317,7 @@ export const SCENARIOS: ScenarioRun[] = [
         durationSecs: 300,
         tenantDiversity: m3diversity,
         description: `Memory pressure: 50 VUs across ${m3diversity} tenants (50%), 5min`,
+        postBenchProbe: qTimeS1Probe(24),
       },
       {
         name: 'm4-50pct-b',
@@ -234,6 +327,7 @@ export const SCENARIOS: ScenarioRun[] = [
         durationSecs: 300,
         tenantDiversity: m3diversity,
         description: `Memory pressure Strategy B: 50 VUs across ${m3diversity} tenants (50%), 5min`,
+        postBenchProbe: qTimeS1Probe(24),
       },
     ];
   })(),
@@ -247,6 +341,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 900,
     tenantDiversity: 10,
     description: 'Mixed workload (70% read, 15% paginate, 10% span write, 5% item write), 10 VUs',
+    postBenchProbe: mixedProbe,
   },
   {
     name: 'mixed-50vu',
@@ -256,6 +351,7 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 900,
     tenantDiversity: 50,
     description: 'Mixed workload, 50 VUs',
+    postBenchProbe: mixedProbe,
   },
   {
     name: 'mixed-100vu',
@@ -265,5 +361,6 @@ export const SCENARIOS: ScenarioRun[] = [
     durationSecs: 900,
     tenantDiversity: 100,
     description: 'Mixed workload, 100 VUs',
+    postBenchProbe: mixedProbe,
   },
 ];

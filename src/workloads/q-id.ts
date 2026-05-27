@@ -22,7 +22,7 @@ function getOrInitS2State(tenantId: string): S2State {
   return state;
 }
 
-function qIdS1Sql(strategy: 'a' | 'b', tenantId: string, cursor: CursorState | undefined, now: string): string {
+export function qIdS1Sql(strategy: 'a' | 'b', tenantId: string, cursor: CursorState | undefined, now: string): string {
   const table = strategy === 'b' ? 'spans' : tenantTable('spans', tenantId);
   const tenantFilter = strategy === 'b' ? `tenant_id = ${quoteSql(tenantId)} AND ` : '';
   const cursorFilter = cursor
@@ -38,7 +38,7 @@ function qIdS1Sql(strategy: 'a' | 'b', tenantId: string, cursor: CursorState | u
           LIMIT 50`;
 }
 
-function qIdS2Sql(strategy: 'a' | 'b', tenantId: string, conversationId: string, cursor: CursorState | null): string {
+export function qIdS2Sql(strategy: 'a' | 'b', tenantId: string, conversationId: string, cursor: CursorState | null): string {
   const table = strategy === 'b' ? 'conversation_items' : tenantTable('conversation_items', tenantId);
   const tenantFilter = strategy === 'b' ? `tenant_id = ${quoteSql(tenantId)} AND ` : '';
   const cursorFilter = cursor

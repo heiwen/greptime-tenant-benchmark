@@ -6,7 +6,7 @@ import { quoteSql, runExplainInBench, shouldExplain } from './explain.js';
 
 let qConvCounter = 0;
 
-function qConvSql(strategy: 'a' | 'b', tenantId: string, conversationId: string): string {
+export function qConvSql(strategy: 'a' | 'b', tenantId: string, conversationId: string): string {
   if (strategy === 'b') {
     return `SELECT "id", conversation_id, created_at, "type", "data"
       FROM conversation_items

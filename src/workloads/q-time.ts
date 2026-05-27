@@ -6,7 +6,7 @@ import { quoteSql, runExplainInBench, shouldExplain } from './explain.js';
 
 let qTimeCounter = 0;
 
-function qTimeS1Sql(strategy: 'a' | 'b', tenantId: string, cutoff: string): string {
+export function qTimeS1Sql(strategy: 'a' | 'b', tenantId: string, cutoff: string): string {
   if (strategy === 'b') {
     return `SELECT trace_id, span_id, "timestamp", duration_nano,
                gen_ai_system, gen_ai_request_model,
@@ -27,7 +27,7 @@ function qTimeS1Sql(strategy: 'a' | 'b', tenantId: string, cutoff: string): stri
         LIMIT 50`;
 }
 
-function qTimeS2Sql(strategy: 'a' | 'b', tenantId: string, conversationId: string, cutoff: string): string {
+export function qTimeS2Sql(strategy: 'a' | 'b', tenantId: string, conversationId: string, cutoff: string): string {
   if (strategy === 'b') {
     return `SELECT "id", conversation_id, created_at, "type"
         FROM conversation_items
