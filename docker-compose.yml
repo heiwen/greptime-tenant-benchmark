@@ -1,5 +1,5 @@
 x-greptimedb: &greptimedb
-  image: greptime/greptimedb:v1.0.0
+  image: greptime/greptimedb:v1.0.2
 
 x-node-limits: &node-limits
   mem_limit: 16g
