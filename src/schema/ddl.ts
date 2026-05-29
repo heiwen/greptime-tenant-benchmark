@@ -1,6 +1,11 @@
 import { config } from '../config.js';
 import { PARTITION_CLAUSE_ON } from './partitions.js';
 
+function partitionKeyFor(table: 'spans' | 'conversation_items'): string {
+  if (config.partitionKey === 'tenant_id') return 'tenant_id';
+  return table === 'spans' ? 'trace_id' : 'conversation_id';
+}
+
 // Emit the PRIMARY KEY clause for a table.
 //   withTenantId = true  → the table has a tenant_id column (shared-table schema);
 //                          tenant_id is the first PK column.
@@ -90,7 +95,7 @@ export function spansTableB(): string {
   span_links STRING,
   TIME INDEX ("timestamp")${primaryKey(true, 'trace_id')}
 )
-${PARTITION_CLAUSE_ON('tenant_id')}
+${PARTITION_CLAUSE_ON(partitionKeyFor('spans'))}
 WITH ('append_mode' = 'true')`;
 }
 
@@ -118,6 +123,6 @@ export function conversationItemsTableB(): string {
   "data" STRING,
   TIME INDEX ("created_at")${primaryKey(true, 'conversation_id')}
 )
-${PARTITION_CLAUSE_ON('tenant_id')}
+${PARTITION_CLAUSE_ON(partitionKeyFor('conversation_items'))}
 WITH ('append_mode' = 'true')`;
 }

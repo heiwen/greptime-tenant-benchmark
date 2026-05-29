@@ -1,3 +1,13 @@
+export type PartitionKey = 'default' | 'tenant_id';
+
+function partitionKey(): PartitionKey {
+  const value = process.env.PARTITION_KEY ?? 'default';
+  if (value === 'default' || value === 'tenant_id') {
+    return value;
+  }
+  throw new Error(`PARTITION_KEY must be default or tenant_id, got ${value}`);
+}
+
 export const config = {
   dbUrl: process.env.GREPTIMEDB_URL ?? 'postgres://greptime@localhost:4003/public',
   httpUrl: process.env.GREPTIMEDB_HTTP_URL ?? 'http://localhost:4000',
@@ -36,4 +46,8 @@ export const config = {
   // Trades higher series cardinality for cheaper per-item scans.
   // Run with ITEM_PK=false (default) and ITEM_PK=true to compare.
   itemPk: (process.env.ITEM_PK ?? 'false') === 'true',
+  // Strategy B only: partition shared tables by each table's default per-item
+  // id column (trace_id for spans, conversation_id for conversation_items), or
+  // by tenant_id for tenant-local routing.
+  partitionKey: partitionKey(),
 };

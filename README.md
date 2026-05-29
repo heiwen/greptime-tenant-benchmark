@@ -166,7 +166,15 @@ rm results/tenants.json
 
 For the baseline 100-tenant run omit the env var (default is 100).
 
-**Schema variant:** set `ITEM_PK=true` to append each table's per-item cluster column to its PRIMARY KEY (`trace_id` on `spans`, `conversation_id` on `conversation_items`). For Strategy B this produces `PRIMARY KEY (tenant_id, trace_id)` on `spans` and `PRIMARY KEY (tenant_id, conversation_id)` on `conversation_items`. The BLOOM skipping index is kept on the same high-cardinality id column in both modes. Current B2 experiment: both shared tables are partitioned on `tenant_id` to test tenant-local routing for S1 pagination/time-range reads and S2 Q-conv, while keeping a single shared table per dataset. The same `ITEM_PK` value must be set at every subsequent step — schema, seed, and bench — because the line-protocol writer maps tags to PK columns, so seeding must agree with the DDL on which columns are tags.
+**Schema variant:** set `ITEM_PK=true` to append each table's per-item cluster column to its PRIMARY KEY (`trace_id` on `spans`, `conversation_id` on `conversation_items`). For Strategy B this produces `PRIMARY KEY (tenant_id, trace_id)` on `spans` and `PRIMARY KEY (tenant_id, conversation_id)` on `conversation_items`. The BLOOM skipping index is kept on the same high-cardinality id column in both modes. The same `ITEM_PK` value must be set at every subsequent step — schema, seed, and bench — because the line-protocol writer maps tags to PK columns, so seeding must agree with the DDL on which columns are tags.
+
+To retry the older conversation-region layout on newer GreptimeDB builds, recreate Strategy B with:
+
+```bash
+ITEM_PK=true PARTITION_KEY=default bun run schema:create -- --strategy b --drop
+```
+
+`PARTITION_KEY=default` partitions the shared `spans` table by `trace_id` and the shared `conversation_items` table by `conversation_id`. Use `PARTITION_KEY=tenant_id` for the tenant-local layout.
 
 ### Step 3 — Seed data
 
@@ -362,4 +370,5 @@ Note: the public IP changes after a stop/start. Re-run the `describe-instances` 
 | `SPARSE_MULTIPLIER` | `1.0` | Scale data per tenant proportionally |
 | `HISTORICAL_SHARE` | `0.60` | Fraction of rows seeded as historical (>4 months old); reduce to shrink disk usage without affecting hot data |
 | `ITEM_PK` | `false` | Append the per-item cluster column to each table's PRIMARY KEY (`trace_id` for spans, `conversation_id` for conversation_items). Must be set identically at schema, seed, and bench steps. See [Step 2](#step-2--create-schemas). |
+| `PARTITION_KEY` | `default` | Strategy B schema creation only. `default` maps to `trace_id` for `spans` and `conversation_id` for `conversation_items`; set to `tenant_id` for tenant-local partitioning. |
 | `RESULTS_DIR` | `./results` | Output directory for CSVs |
